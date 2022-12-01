@@ -45,7 +45,6 @@ namespace prodtestServer
         ~Service();
 
 
-//        bool on_CommandEntered(const telnetEvent::CommandEntered*);
 
     public:
         void deinit()
@@ -57,7 +56,6 @@ namespace prodtestServer
         {
             return new Service(id,nm,obj);
         }
-//        bool on_RequestIncoming(const webHandlerEvent::RequestIncoming* e);
 
 
         bool on_AddTaskREQ(const prodtestEvent::AddTaskREQ* e);

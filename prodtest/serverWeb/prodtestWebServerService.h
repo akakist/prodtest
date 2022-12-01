@@ -16,15 +16,8 @@
 
 #include "Real.h"
 #include "Events/System/Run/startService.h"
-#include "Events/Tools/telnet/CommandEntered.h"
-#include "Events/Tools/webHandler/RequestIncoming.h"
 #include "Events/System/timer/TickTimer.h"
 
-#include "Events/System/Net/oscar/Accepted.h"
-#include "Events/System/Net/oscar/Disaccepted.h"
-#include "Events/System/Net/oscar/AddToListenTCP.h"
-#include "Events/System/Net/oscar/PacketOnAcceptor.h"
-#include "Events/System/Net/oscar/SendPacket.h"
 #include "Events/System/Net/http/DoListen.h"
 #include "Events/System/Net/http/RequestIncoming.h"
 #include "Events/System/Net/rpc/IncomingOnAcceptor.h"

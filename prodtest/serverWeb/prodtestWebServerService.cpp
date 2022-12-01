@@ -222,16 +222,11 @@ REF_getter<prodtestWebServer::Session> prodtestWebServer::Service::get_session( 
 
 bool prodtestWebServer::Service::on_AddTaskRSP(const prodtestEvent::AddTaskRSP*e)
 {
-//    logErr2("@@ %s",__PRETTY_FUNCTION__);
+    logErr2("@@ %s %s",__PRETTY_FUNCTION__,e->dump().toStyledString().c_str());
     HTTP::Response resp;
     auto S=get_session(e->session);
     resp.content="<div>received response "+e->sampleString+"</div>";
     resp.makeResponse(S->esi);
-//    logErr2("%s",s.c_str());
-//    resp.
-//    resp.makeResponse(S->esi);
-//    S->esi->markedToDestroyOnSend=true;
-//    S->esi->write_(s);
 
     return true;
 }
