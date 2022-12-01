@@ -38,6 +38,11 @@ public:
         M_LOCK(this);
         m_container.erase(sid);
     }
+    std::map<SOCKET_id,REF_getter<epoll_socket_info> > getContainer()
+    {
+        M_LOCK(this);
+        return m_container;
+    }
     size_t count(const SOCKET_id& sid)
     {
         M_LOCK(this);
