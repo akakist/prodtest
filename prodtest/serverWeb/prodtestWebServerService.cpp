@@ -57,6 +57,8 @@ bool prodtestWebServer::Service::handleEvent(const REF_getter<Event::Base>& e)
             return on_startService((const systemEvent::startService*)e.operator->());
 
 
+        if(prodtestEventEnum::AddTaskRSP==ID)
+            return on_AddTaskRSP((const prodtestEvent::AddTaskRSP*)e.operator->());
 
         if(rpcEventEnum::IncomingOnConnector==ID)
         {
