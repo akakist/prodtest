@@ -62,6 +62,7 @@ public:
     {
         M_LOCK(this);
         m_container.insert(std::make_pair(esi->m_id,esi));
+        logErr2("m_container.size() %d",m_container.size());
     }
 
     void clear()
@@ -89,14 +90,8 @@ private:
         v["listen_backlog"]=(int)m_listen_backlog;
         v["sockets"]=m_socks->jdump();
         v["maxOutBufferSize"]=std::to_string(maxOutBufferSize);
-#ifdef HAVE_EPOLL
         v["epoll_size"]=std::to_string(epoll_size);
         v["epoll_timeout_millisec"]=std::to_string(epoll_timeout_millisec);
-#endif
-#ifdef HAVE_KQUEUE
-        v["kqueue_size"]=std::to_string(kqueue_size);
-        v["kqueue_timeout_millisec"]=std::to_string(kqueue_timeout_millisec);
-#endif
         v["sockets"]=m_socks->jdump();
 
         return v;
@@ -117,9 +112,8 @@ private:
 #endif
 #ifdef HAVE_KQUEUE
     /// конфигурационный параметр
-    int kqueue_size;
-    /// конфигурационный параметр
-    int kqueue_timeout_millisec;
+    int epoll_size;
+    int epoll_timeout_millisec;
 #endif
 
 

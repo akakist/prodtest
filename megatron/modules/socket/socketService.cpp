@@ -76,8 +76,8 @@ SocketIO::Service::Service(const SERVICE_id& id, const std::string& nm, IInstanc
         if (m_socks->multiplexor->m_epoll.m_epollFd<0) throw CommonError("epoll_create: errno %d",errno);
 #endif
 #ifdef HAVE_KQUEUE
-        kqueue_timeout_millisec=ifa->getConfig()->get_int64_t("timeout_millisec",10,"");
-        kqueue_size=ifa->getConfig()->get_int64_t("size",1024,"");
+        epoll_timeout_millisec=ifa->getConfig()->get_int64_t("epoll_timeout_millisec",10,"");
+        epoll_size=ifa->getConfig()->get_int64_t("epoll_size",1024,"");
 
 #endif
         m_listen_backlog=ifa->getConfig()->get_int64_t("listen_backlog",128,"");
@@ -213,9 +213,7 @@ void SocketIO::Service::onEPOLLIN_STREAMTYPE_CONNECTED_or_STREAMTYPE_ACCEPTED(co
         XTRY;
 //        logErr2("recv 0");
         int err=errno;
-//#ifndef __linux__
         closeSocket(esi,"recv 0, resetted by peer",err);
-//#endif
         return;
         XPASS;
 
@@ -374,7 +372,6 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
         if(getpeername(CONTAINER(esi->get_fd()),  remote_name.addr(), &sr))
         {
             return;
-            throw CommonError("getpeername: errno fd=%d %d %s (%s %d)",CONTAINER(esi->get_fd()),errno,strerror(errno),__FILE__,__LINE__);
         }
         esi->local_name=local_name;
         if(esi->remote_name!=remote_name)
@@ -742,7 +739,7 @@ void SocketIO::Service::worker()
 
             timespec ts;
             ts.tv_sec=0;
-            ts.tv_nsec=kqueue_timeout_millisec*1000;
+            ts.tv_nsec=epoll_timeout_millisec*1000;
             auto evs=m_socks->multiplexor->extractEvents();
 
 
