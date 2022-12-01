@@ -161,11 +161,17 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
     auto S=check_session(e->req,resp);
     S->esi=e->esi;
 
-    {
+    if(0){
 
         std::string query_string=e->req->params["query_string"];
         sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
         return true;
+    }
+    if(1)
+    {
+        resp.content="<div>received response </div>";
+        resp.makeResponse(S->esi);
+
     }
 
     return true;
