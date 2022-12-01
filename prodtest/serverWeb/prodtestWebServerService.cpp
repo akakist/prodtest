@@ -162,7 +162,6 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
     {
 
         std::string query_string=e->req->params["query_string"];
-        logErr2("sendEvent to %s",prodtestServerAddr.c_str());
         sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
         return true;
     }
@@ -222,7 +221,6 @@ REF_getter<prodtestWebServer::Session> prodtestWebServer::Service::get_session( 
 
 bool prodtestWebServer::Service::on_AddTaskRSP(const prodtestEvent::AddTaskRSP*e)
 {
-    logErr2("@@ %s %s",__PRETTY_FUNCTION__,e->dump().toStyledString().c_str());
     HTTP::Response resp;
     auto S=get_session(e->session);
     resp.content="<div>received response "+e->sampleString+"</div>";

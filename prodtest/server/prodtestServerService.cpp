@@ -98,7 +98,6 @@ void registerprodtestServerService(const char* pn)
 
 bool prodtestServer::Service::on_AddTaskREQ(const prodtestEvent::AddTaskREQ* e)
 {
-    logErr2("@@ %s %s",__PRETTY_FUNCTION__,e->dump().toStyledString().c_str());
     std::string xored=e->sampleString+"123";
     passEvent(new prodtestEvent::AddTaskRSP(e->session,xored,poppedFrontRoute(e->route)));
     return true;

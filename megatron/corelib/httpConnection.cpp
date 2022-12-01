@@ -240,16 +240,13 @@ HTTP::Response::Response()
 void HTTP::Response::makeResponse(const REF_getter<epoll_socket_info>& esi)
 {
     std::string out = build_html_response();
-//    logErr2("out %s",out.c_str());
-    esi->write_(out);
     esi->markedToDestroyOnSend=true;
+    esi->write_(out);
 }
 void HTTP::Response::makeResponsePersistent(const REF_getter<epoll_socket_info> &esi)
 {
     std::string out = build_html_response_wo_content_length();
-//    logErr2("out %s",out.c_str());
     esi->write_(out);
-//    esi->markedToDestroyOnSend=true;
 }
 
 bool HTTP::Request::__gets$(std::string& dst,const std::string& delim, std::string& data)

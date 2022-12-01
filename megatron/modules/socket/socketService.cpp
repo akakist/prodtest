@@ -417,6 +417,7 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
 
 
     bool need_to_close=false;
+//    logErr2("bool need_to_close=false;");
     {
         MUTEX_INSPECTOR;
         XTRY;
@@ -436,19 +437,13 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
                     m_stats.addOut(esi,res);
 #endif
                     m_total_send+=res;
-                    if (res!=(int)sz)
-                    {
-                        XTRY;
-                        XPASS;
-                    }
-                    else
+
+                    if(esi->m_outBuffer.size()==0)
                     {
                         XTRY;
                         if (esi->markedToDestroyOnSend)
                         {
                             need_to_close=true;
-                            DBG(logErr2("set need_to_close=true"));
-
                         }
                         XPASS;
                     }
@@ -911,7 +906,6 @@ void SocketIO::Service::closeSocket(const REF_getter<epoll_socket_info>&esi,cons
     XTRY;
 
     m_socks->remove(esi->m_id);
-    DBG(logErr2("socks remove %s",reason.c_str()));
     esi->close(reason);
     XPASS;
 }
@@ -920,10 +914,6 @@ bool  SocketIO::Service::on_startService(const systemEvent::startService*)
     XTRY;
 
 
-//    if(iUtils->isServiceRegistered(ServiceEnum::WebHandler))
-//    {
-//        sendEvent(ServiceEnum::WebHandler, new webHandlerEvent::RegisterHandler("socket","Socket",ListenerBase::serviceId));
-//    }
 
     XPASS;
     return true;
