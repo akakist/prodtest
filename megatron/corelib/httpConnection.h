@@ -23,52 +23,52 @@ typedef long (*__url_open)(const char* fn, int flags);
 
 namespace HTTP
 {
-    class Service;
-    std::string get_name_of_http_code(int code);
-    std::string make_http_header();
-    std::string make_http_header(const int code);
-    std::string make_http_header(std::map<std::string,std::string> &pr);
-    std::string make_http_header(const int code,std::map<std::string,std::string> &pr);
+class Service;
+std::string get_name_of_http_code(int code);
+std::string make_http_header();
+std::string make_http_header(const int code);
+std::string make_http_header(std::map<std::string,std::string> &pr);
+std::string make_http_header(const int code,std::map<std::string,std::string> &pr);
 
-    class IoProtocol
-    {
-    public:
-        __url_open m_open;
-        __url_read m_read;
-        __url_seek m_seek;
-        __url_close m_close;
-        IoProtocol():m_open(NULL),m_read(NULL),m_seek(NULL),m_close(NULL)
-        {
-
-        }
-
-    };
-
-    class Request:public Refcountable
+class IoProtocol
+{
+public:
+    __url_open m_open;
+    __url_read m_read;
+    __url_seek m_seek;
+    __url_close m_close;
+    IoProtocol():m_open(NULL),m_read(NULL),m_seek(NULL),m_close(NULL)
     {
 
-    public:
-        std::map<std::string,std::string> headers;
-        std::map<std::string,std::string> in_cookies;
-        std::map<std::string,std::string> params;
-        std::map<std::string,std::vector<std::string> > v_params;/** for multiple select */
-        std::string peer_ipaddress;
+    }
 
-        const std::string METHOD;
-        std::string url;
-        std::string original_url;
-        std::string original_params;
-        std::string postContent;
-        std::deque<std::string> vurl;
+};
 
-        Request();
-        void split_params(const std::string & s);
+class Request:public Refcountable
+{
 
-        bool __gets$(std::string& dst,const std::string& delim, std::string& data);/// true if success
-        bool __readbuf$(std::string& dst,size_t sz, std::string& data); ///true if success
+public:
+    std::map<std::string,std::string> headers;
+    std::map<std::string,std::string> in_cookies;
+    std::map<std::string,std::string> params;
+    std::map<std::string,std::vector<std::string> > v_params;/** for multiple select */
+    std::string peer_ipaddress;
 
-        std::set<int> parse_state;
-        time_t m_last_io_time;
+    const std::string METHOD;
+    std::string url;
+    std::string original_url;
+    std::string original_params;
+    std::string postContent;
+    std::deque<std::string> vurl;
+
+    Request();
+    void split_params(const std::string & s);
+
+    bool __gets$(std::string& dst,const std::string& delim, std::string& data);/// true if success
+    bool __readbuf$(std::string& dst,size_t sz, std::string& data); ///true if success
+
+    std::set<int> parse_state;
+    time_t m_last_io_time;
 
 //        bool isPersistent;
 //        void makePersistent(bool v)
@@ -76,70 +76,70 @@ namespace HTTP
 //            isPersistent=v;
 //        }
 
-        struct _fileresponse: public Refcountable
-        {
-            bool hasRange;
-            bool headerSent;
-            int64_t written_bytes;
-            int64_t startb, endb, contentLength;
-            std::string fileName;
-            std::string extension;
-
-        private:
-            long m_fd;
-            bool m_closed;
-        public:
-            void set_fd(const long &fd) {
-                m_fd=fd;
-            }
-            long get_fd()
-            {
-                return m_fd;
-            }
-            int64_t fileSize;
-            IoProtocol io_protocol;
-
-            bool closed()
-            {
-                return m_closed;
-            }
-            void close()
-            {
-                m_closed=true;
-            }
-
-            _fileresponse():hasRange(false),headerSent(false),written_bytes(0),startb(0),endb(0),contentLength(0),
-                m_fd(-1),m_closed(false),fileSize(-1LL) {}
-            ~_fileresponse();
-        };
-        REF_getter<_fileresponse> fileresponse;
-        bool isKeepAlive;
-        bool sendRequestIncomingIsSent;
+    struct _fileresponse: public Refcountable
+    {
+        bool hasRange;
+        bool headerSent;
+        int64_t written_bytes;
+        int64_t startb, endb, contentLength;
+        std::string fileName;
+        std::string extension;
 
     private:
-    };
-    class Response
-    {
+        long m_fd;
+        bool m_closed;
     public:
-        void makeResponse(const REF_getter<epoll_socket_info>& esi);
-        void makeResponsePersistent(const REF_getter<epoll_socket_info>& esi);
-        int http_code;
-        std::string http_content_type;
-        std::string content;
-        std::string http_charset;
-        std::map<std::string,std::string> http_header_out;
-        std::map<std::string,std::string> out_cookies;
-        bool allow_build_response;
-        std::string build_html_response();
-        std::string build_html_response_wo_content_length();
+        void set_fd(const long &fd) {
+            m_fd=fd;
+        }
+        long get_fd()
+        {
+            return m_fd;
+        }
+        int64_t fileSize;
+        IoProtocol io_protocol;
 
-        void redirect(const std::string &url);
+        bool closed()
+        {
+            return m_closed;
+        }
+        void close()
+        {
+            m_closed=true;
+        }
 
-
-        void makePersistent();
-        Response();
-        virtual ~Response();
+        _fileresponse():hasRange(false),headerSent(false),written_bytes(0),startb(0),endb(0),contentLength(0),
+            m_fd(-1),m_closed(false),fileSize(-1LL) {}
+        ~_fileresponse();
     };
+    REF_getter<_fileresponse> fileresponse;
+    bool isKeepAlive;
+    bool sendRequestIncomingIsSent;
+
+private:
+};
+class Response
+{
+public:
+    void makeResponse(const REF_getter<epoll_socket_info>& esi);
+    void makeResponsePersistent(const REF_getter<epoll_socket_info>& esi);
+    int http_code;
+    std::string http_content_type;
+    std::string content;
+    std::string http_charset;
+    std::map<std::string,std::string> http_header_out;
+    std::map<std::string,std::string> out_cookies;
+    bool allow_build_response;
+    std::string build_html_response();
+    std::string build_html_response_wo_content_length();
+
+    void redirect(const std::string &url);
+
+
+    void makePersistent();
+    Response();
+    virtual ~Response();
+};
 };
 
 #endif

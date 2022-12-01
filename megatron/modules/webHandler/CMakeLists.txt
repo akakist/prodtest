@@ -1,9 +1,9 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.0)
 
 add_library(core-webHandler SHARED
-    webHandler.cpp
-    webHandlerService.cpp
-)
+            webHandler.cpp
+            webHandlerService.cpp
+           )
 
 target_link_libraries(core-webHandler megatron-core pthread)
 

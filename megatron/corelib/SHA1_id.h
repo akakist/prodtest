@@ -5,17 +5,21 @@
 #include "IUtils.h"
 struct SHA1_id
 {
-   friend bool operator < (const SHA1_id& a,const SHA1_id& b);
-   friend bool operator == (const SHA1_id& a,const SHA1_id& b);
-   friend bool operator != (const SHA1_id& a,const SHA1_id& b);
-   friend outBuffer& operator<< (outBuffer& b,const SHA1_id& s);
-   friend inBuffer& operator>> (inBuffer& b,  SHA1_id& s);
+    friend bool operator < (const SHA1_id& a,const SHA1_id& b);
+    friend bool operator == (const SHA1_id& a,const SHA1_id& b);
+    friend bool operator != (const SHA1_id& a,const SHA1_id& b);
+    friend outBuffer& operator<< (outBuffer& b,const SHA1_id& s);
+    friend inBuffer& operator>> (inBuffer& b,  SHA1_id& s);
 private:
     std::string container;
 public:
     SHA1_id() {}
-    void set(const std::string& s){container=s;}
-    std::string get(){return container;}
+    void set(const std::string& s) {
+        container=s;
+    }
+    std::string get() {
+        return container;
+    }
     std::string toString() const
     {
         return container;

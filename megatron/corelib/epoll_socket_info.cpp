@@ -77,7 +77,7 @@ void epoll_socket_info::write_(const std::string&s)
 #ifdef HAVE_KQUEUE
             {
                 struct kevent ev2;
-                EV_SET(&ev2,CONTAINER(get_fd()),EVFILT_WRITE,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
+                EV_SET(&ev2,CONTAINER(m_fd),EVFILT_WRITE,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
                 multiplexor->addEvent(ev2);
             }
 #elif defined HAVE_EPOLL
@@ -151,9 +151,6 @@ void epoll_socket_info::close(const std::string & reason)
 #else
         if(!::close(CONTAINER(m_fd)))
 #endif
-        {
-        }
-        else
         {
         }
         CONTAINER(m_id)=-1;

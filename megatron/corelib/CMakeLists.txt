@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.0)
 
 #project(dfsCore)
 
@@ -39,7 +39,7 @@ add_library(megatron-core STATIC
             objectHandler.cpp
             route_t.cpp
             socketsContainer.cpp
-	    networkMultiplexor.cpp
+            networkMultiplexor.cpp
             unknown.cpp
             url.cpp
             trashable.cpp

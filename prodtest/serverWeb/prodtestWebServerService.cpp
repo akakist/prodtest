@@ -104,7 +104,7 @@ prodtestWebServer::Service::~Service()
 
 prodtestWebServer::Service::Service(const SERVICE_id& id, const std::string& nm,IInstance* ins):
     UnknownBase(nm),
-    ListenerBuffered1Thread(this,nm,ins->getConfig(),id,ins),
+    ListenerBuffered(nm,ins->getConfig(),id,ins),
     Broadcaster(ins)
 {
     auto ba=ins->getConfig()->get_tcpaddr("bindAddr","0.0.0.0:8088","http listen address");
@@ -158,19 +158,19 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 {
 
     HTTP::Response resp;
-    auto S=check_session(e->req,resp);
-    S->esi=e->esi;
+//    auto S=check_session(e->req,resp);
+//    S->esi=e->esi;
 
     if(0){
 
         std::string query_string=e->req->params["query_string"];
-        sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
+//        sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
         return true;
     }
     if(1)
     {
         resp.content="<div>received response </div>";
-        resp.makeResponse(S->esi);
+        resp.makeResponse(e->esi);
 
     }
 

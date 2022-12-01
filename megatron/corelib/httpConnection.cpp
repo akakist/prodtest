@@ -226,7 +226,7 @@ HTTP::Request::Request()
     :
     m_last_io_time(time(NULL)),
     fileresponse(NULL/*new _fileresponse*/)
-  ,isKeepAlive(false),
+    ,isKeepAlive(false),
     sendRequestIncomingIsSent(false)
 //  , isPersistent(false)
 {

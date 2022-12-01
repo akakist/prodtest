@@ -625,8 +625,8 @@ void SocketIO::Service::worker()
             FD_ZERO(&exceptfds);
             std::set<int> socklist;
             for(auto i=cc.begin();
-            i!=cc.end();
-            i++)
+                    i!=cc.end();
+                    i++)
             {
                 REF_getter<epoll_socket_info> esi=i->second;
                 if(CONTAINER(esi->get_fd())!=-1)
@@ -682,43 +682,41 @@ void SocketIO::Service::worker()
             if(m_isTerminating) return ;
 //            if(iUtils->isTerminating()) return NULL;
             int nfds;
-        {
-            nfds=epoll_wait(m_socks->multiplexor->m_epoll.m_epollFd,events,m_socks->multiplexor->m_epoll.size,m_socks->multiplexor->m_epoll.timeout_millisec);
+            {
+                nfds=epoll_wait(m_socks->multiplexor->m_epoll.m_epollFd,events,m_socks->multiplexor->m_epoll.size,m_socks->multiplexor->m_epoll.timeout_millisec);
             }
 
             int __ERRNO=errno;
-            if(iUtils->isTerminating())
-                return ;
-                if (nfds==-1)
+            if (nfds==-1)
             {
                 if(__ERRNO==EINTR)
-                    {
-                        continue;
-                    }
-                    logErr2("epoll_wait: __ERRNO %d",__ERRNO);
-
-
-                    std::map<SOCKET_id,REF_getter<epoll_socket_info> >cc=m_socks->getContainer();
-                    for(auto & i : cc)
-                    {
-
-                        REF_getter<epoll_socket_info> &ss=i.second;
-
-                        if(ss->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
-                        {
-                            closeSocket(ss,"epoll_wait failed",__ERRNO);
-                            m_socks->remove(ss->m_id);
-                            const REF_getter<socketEvent::AddToListenTCP> e=new socketEvent::AddToListenTCP(ss->m_id,ss->local_name,ss->socketDescription,true,ss->bufferVerify,ss->m_route);
-                            on_AddToListenTCP(e.operator ->());
-                        }
-                    }
+                {
                     continue;
                 }
+                logErr2("epoll_wait: __ERRNO %d",__ERRNO);
+
+
+                std::map<SOCKET_id,REF_getter<epoll_socket_info> >cc=m_socks->getContainer();
+                for(auto & i : cc)
+                {
+
+                    REF_getter<epoll_socket_info> &ss=i.second;
+
+                    if(ss->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
+                    {
+                        closeSocket(ss,"epoll_wait failed",__ERRNO);
+                        m_socks->remove(ss->m_id);
+                        const REF_getter<socketEvent::AddToListenTCP> e=new socketEvent::AddToListenTCP(ss->m_id,ss->local_name,ss->socketDescription,true,ss->bufferVerify,ss->m_route);
+                        on_AddToListenTCP(e.operator ->());
+                    }
+                }
+                continue;
+            }
             for (int i=0; i<nfds; i++)
-        {
-            XTRY;
-            SOCKET_id id;
-            CONTAINER(id)=events[i].data.u64;
+            {
+                XTRY;
+                SOCKET_id id;
+                CONTAINER(id)=events[i].data.u64;
                 REF_getter<epoll_socket_info> __EV=m_socks->getOrNull(id);
                 if (!__EV.valid())
                 {
@@ -735,7 +733,6 @@ void SocketIO::Service::worker()
                 if (events[i].events&EPOLLOUT && !__EV->closed())
                 {
                     onEPOLLOUT(__EV);
-                    //__EV->lastIO=time(NULL);
                 }
                 XPASS;
             }
@@ -752,16 +749,16 @@ void SocketIO::Service::worker()
             struct kevent evList[1024];
 
             int nev = kevent(m_socks->multiplexor->getKqueue(), &evs[0], evs.size(), evList, 1024, &ts);
-                if(m_isTerminating) return;
-                if (nev < 0)
-                {
-                    logErr2("kevent error: %d %s", errno, strerror(errno));
-                        continue;
+            if(m_isTerminating) return;
+            if (nev < 0)
+            {
+                logErr2("kevent error: %d %s", errno, strerror(errno));
+                continue;
 
-                    }
+            }
             for (int i=0; i<nev; i++) {
-            SOCKET_id sid;
-            CONTAINER(sid)=(long)evList[i].udata;
+                SOCKET_id sid;
+                CONTAINER(sid)=(long)evList[i].udata;
                 REF_getter<epoll_socket_info> esi=m_socks->getOrNull(sid);
                 if(!esi.valid())
                 {
@@ -781,13 +778,11 @@ void SocketIO::Service::worker()
                         if(l.flags & EV_EOF)
                         {
                             S_LOG("EV_EOF");
-#ifdef HAVE_KQUEUE
                             struct kevent ev1,ev2;
                             EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             m_socks->multiplexor->addEvent(ev1);
                             m_socks->multiplexor->addEvent(ev2);
-#endif
                             if(!esi->closed())
                                 closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
@@ -795,14 +790,11 @@ void SocketIO::Service::worker()
                         else if(l.flags & EV_ERROR)
                         {
                             S_LOG("EV_ERROR");
-#ifdef HAVE_KQUEUE
                             struct kevent ev1,ev2;
                             EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             m_socks->multiplexor->addEvent(ev1);
                             m_socks->multiplexor->addEvent(ev2);
-#endif
-//                            logErr2("closing: id %d  err %d errs %s",CONTAINER(esi->m_id),l.data,strerror(l.data));
                             if(!esi->closed())
                                 closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
@@ -825,13 +817,11 @@ void SocketIO::Service::worker()
                         if(l.flags & EV_EOF)
                         {
                             S_LOG("EV_EOF");
-#ifdef HAVE_KQUEUE
                             struct kevent ev1,ev2;
                             EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             m_socks->multiplexor->addEvent(ev1);
                             m_socks->multiplexor->addEvent(ev2);
-#endif
 
                             if(!esi->closed())
                                 closeSocket(esi,"EV_EOF",0);
@@ -840,14 +830,11 @@ void SocketIO::Service::worker()
                         else if(l.flags & EV_ERROR)
                         {
                             S_LOG("EV_ERROR");
-#ifdef HAVE_KQUEUE
                             struct kevent ev1,ev2;
                             EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
                             m_socks->multiplexor->addEvent(ev1);
                             m_socks->multiplexor->addEvent(ev2);
-#endif
-//                            logErr2("closing: id %d  err %d errs %s",CONTAINER(esi->m_id),l.data,strerror(l.data));
                             if(!esi->closed())
                                 closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
@@ -858,9 +845,6 @@ void SocketIO::Service::worker()
                             continue;
                         }
                     }
-//                    else logErr2("invalid case %s %d",__FILE__,__LINE__);
-
-
                 }
                 else logErr2("invalid case %s %d",__FILE__,__LINE__);
 

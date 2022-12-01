@@ -12,111 +12,111 @@ class ObjectHandler;
 
 namespace ObjectProxy
 {
-    class Base
+class Base
+{
+public:
+
+};
+class Polled:
+    public UnknownBase,
+    public Broadcaster,
+    public IObjectProxyPolled,
+    public ListenerPolled,
+    public Base,
+    public pollable
+{
+public:
+
+    Mutex __m_lock;
+    std::set<std::string> __mx_handlers;
+
+    void sendObjectRequest(const msockaddr_in & dstHost, const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
+    void sendObjectRequest(const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
+    bool handleEvent(const REF_getter<Event::Base>& e);
+
+    void addObjectHandler(ObjectHandlerPolled* h);
+    void removeObjectHandler(ObjectHandlerPolled* h);
+
+    void deinit()
     {
-    public:
+        ListenerPolled::deinit();
+    }
 
-    };
-    class Polled:
-        public UnknownBase,
-        public Broadcaster,
-        public IObjectProxyPolled,
-        public ListenerPolled,
-        public Base,
-        public pollable
+
+    bool on_startService(const systemEvent::startService*)
     {
-    public:
+        return true;
+    }
 
-        Mutex __m_lock;
-        std::set<std::string> __mx_handlers;
-
-        void sendObjectRequest(const msockaddr_in & dstHost, const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
-        void sendObjectRequest(const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
-        bool handleEvent(const REF_getter<Event::Base>& e);
-
-        void addObjectHandler(ObjectHandlerPolled* h);
-        void removeObjectHandler(ObjectHandlerPolled* h);
-
-        void deinit()
-        {
-            ListenerPolled::deinit();
-        }
-
-
-        bool on_startService(const systemEvent::startService*)
-        {
-            return true;
-        }
-
-        Polled(const SERVICE_id &svs, const std::string& nm,IInstance* ifa):
-            UnknownBase(nm),
-            Broadcaster(ifa),
-            ListenerPolled(nm,ifa->getConfig(),svs)
-        {
-            iUtils->addPollable(this);
-        }
-
-        ~Polled()
-        {
-        }
-        static UnknownBase* construct(const SERVICE_id& id, const std::string&  nm,IInstance* ifa)
-        {
-            XTRY;
-            return new Polled(id,nm,ifa);
-            XPASS;
-        }
-
-        void poll()
-        {
-            ListenerPolled::poll();
-        }
-    };
-    class Threaded:
-        public UnknownBase,
-        public Broadcaster,
-        public IObjectProxyThreaded,
-        public ListenerBuffered1Thread,
-        public Base
+    Polled(const SERVICE_id &svs, const std::string& nm,IInstance* ifa):
+        UnknownBase(nm),
+        Broadcaster(ifa),
+        ListenerPolled(nm,ifa->getConfig(),svs)
     {
-    public:
-        Mutex __m_lock;
-        std::set<std::string> __mx_handlers;
+        iUtils->addPollable(this);
+    }
 
-        void addObjectHandler(ObjectHandlerThreaded* h);
-        void removeObjectHandler(ObjectHandlerThreaded* h);
+    ~Polled()
+    {
+    }
+    static UnknownBase* construct(const SERVICE_id& id, const std::string&  nm,IInstance* ifa)
+    {
+        XTRY;
+        return new Polled(id,nm,ifa);
+        XPASS;
+    }
 
-        void sendObjectRequest(const msockaddr_in & dstHost, const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
-        void sendObjectRequest(const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
-        bool handleEvent(const REF_getter<Event::Base>& e);
-        bool on_startService(const systemEvent::startService*) {
-            return true;
-        }
+    void poll()
+    {
+        ListenerPolled::poll();
+    }
+};
+class Threaded:
+    public UnknownBase,
+    public Broadcaster,
+    public IObjectProxyThreaded,
+    public ListenerBuffered1Thread,
+    public Base
+{
+public:
+    Mutex __m_lock;
+    std::set<std::string> __mx_handlers;
+
+    void addObjectHandler(ObjectHandlerThreaded* h);
+    void removeObjectHandler(ObjectHandlerThreaded* h);
+
+    void sendObjectRequest(const msockaddr_in & dstHost, const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
+    void sendObjectRequest(const SERVICE_id & dstService, const REF_getter<Event::Base>& e);
+    bool handleEvent(const REF_getter<Event::Base>& e);
+    bool on_startService(const systemEvent::startService*) {
+        return true;
+    }
 
 
 
-    public:
+public:
 
-        Threaded(const SERVICE_id &svs, const std::string& nm,IInstance* ifa):UnknownBase(nm),
-            Broadcaster(ifa),
-            ListenerBuffered1Thread(this,nm,ifa->getConfig(),svs,ifa)
-        {
-        }
+    Threaded(const SERVICE_id &svs, const std::string& nm,IInstance* ifa):UnknownBase(nm),
+        Broadcaster(ifa),
+        ListenerBuffered1Thread(this,nm,ifa->getConfig(),svs,ifa)
+    {
+    }
 
-        ~Threaded()
-        {
-        }
-        void deinit()
-        {
-            ListenerBuffered1Thread::deinit();
-        }
+    ~Threaded()
+    {
+    }
+    void deinit()
+    {
+        ListenerBuffered1Thread::deinit();
+    }
 
-        static UnknownBase* construct(const SERVICE_id& id, const std::string&  nm,IInstance* ifa)
-        {
-            XTRY;
-            return new Threaded(id,nm,ifa);
-            XPASS;
-        }
-    };
+    static UnknownBase* construct(const SERVICE_id& id, const std::string&  nm,IInstance* ifa)
+    {
+        XTRY;
+        return new Threaded(id,nm,ifa);
+        XPASS;
+    }
+};
 
 }
 #endif

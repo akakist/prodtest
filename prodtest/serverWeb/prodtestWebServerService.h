@@ -5,7 +5,7 @@
 
 
 #include "logging.h"
-#include "listenerBuffered1Thread.h"
+#include "listenerBuffered.h"
 #include "DBH.h"
 #include "USER_id.h"
 #include "IProgress.h"
@@ -56,7 +56,7 @@ namespace prodtestWebServer
 
     class Service:
         public UnknownBase,
-        public ListenerBuffered1Thread,
+        public ListenerBuffered,
         public Broadcaster
     {
         bool on_startService(const systemEvent::startService*);
@@ -77,7 +77,7 @@ namespace prodtestWebServer
     public:
         void deinit()
         {
-            ListenerBuffered1Thread::deinit();
+            ListenerBuffered::deinit();
         }
 
         static UnknownBase* construct(const SERVICE_id& id, const std::string&  nm,IInstance* obj)

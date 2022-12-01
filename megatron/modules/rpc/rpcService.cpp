@@ -372,10 +372,10 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
             logErr2("getsockname: errno %d %s",errno,strerror(errno));
             return true;
         }
-        DBG(logErr2("--------GETSOCKNAME m_bindAddr_reserve retursn %s",addr.dump().c_str()));
+//        DBG(logErr2("--------GETSOCKNAME m_bindAddr_reserve retursn %s",addr.dump().c_str()));
 
 
-        DBG(logErr2("---------------e->sockType %s",e->socketDescription.c_str()));
+//        DBG(logErr2("---------------e->sockType %s",e->socketDescription.c_str()));
         {
             M_LOCK(sharedAddr);
             sharedAddr.m_networkInitialized=true;
