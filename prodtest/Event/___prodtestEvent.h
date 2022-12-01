@@ -13,8 +13,6 @@ namespace ServiceEnum
 namespace prodtestEventEnum
 {
 
-    const EVENT_id Ping("pt.ping");
-    const EVENT_id Pong("pt.pong");
     const EVENT_id AddTaskREQ("pt.AddTaskREQ");
     const EVENT_id AddTaskRSP("pt.AddTaskRSP");
 

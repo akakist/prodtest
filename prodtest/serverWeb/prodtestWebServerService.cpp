@@ -51,12 +51,8 @@ bool prodtestWebServer::Service::handleEvent(const REF_getter<Event::Base>& e)
             }
             return true;
         }
-        if(webHandlerEventEnum::RequestIncoming==ID)
-            return on_RequestIncoming((const webHandlerEvent::RequestIncoming*)e.operator->());
         if(httpEventEnum::RequestIncoming==ID)
             return on_RequestIncoming((const httpEvent::RequestIncoming*)e.operator->());
-        if(telnetEventEnum::CommandEntered==ID)
-            return on_CommandEntered((const telnetEvent::CommandEntered*)e.operator->());
         if(systemEventEnum::startService==ID)
             return on_startService((const systemEvent::startService*)e.operator->());
 
@@ -99,11 +95,6 @@ bool prodtestWebServer::Service::handleEvent(const REF_getter<Event::Base>& e)
     return false;
 }
 
-bool prodtestWebServer::Service::on_CommandEntered(const telnetEvent::CommandEntered*)
-{
-    return true;
-}
-
 prodtestWebServer::Service::~Service()
 {
 }
@@ -123,10 +114,6 @@ prodtestWebServer::Service::Service(const SERVICE_id& id, const std::string& nm,
 
 }
 
-bool prodtestWebServer::Service::on_RequestIncoming(const webHandlerEvent::RequestIncoming* )
-{
-    return true;
-}
 void registerprodtestServerWebService(const char* pn)
 {
     MUTEX_INSPECTOR;
@@ -175,9 +162,8 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
     {
 
         std::string query_string=e->req->params["query_string"];
+        logErr2("sendEvent to %s",prodtestServerAddr.c_str());
         sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
-//        resp.content=index_html;
-//        resp.makeResponsePersistent(e->esi);
         return true;
     }
 

@@ -7,57 +7,6 @@
 namespace prodtestEvent {
 
 
-    class Ping: public Event::Base
-    {
-        enum {channel=CHANNEL_100};
-
-
-    public:
-        static Base* construct(const route_t &r)
-        {
-            Base* z=new Ping(r);
-            return z;
-        }
-        Ping(const route_t&r)
-            :Base(prodtestEventEnum::Ping,channel,r) {}
-        void unpack(inBuffer& o)
-        {
-        }
-        void pack(outBuffer&o) const
-        {
-        }
-        void jdump(Json::Value &) const
-        {
-        }
-
-    };
-
-
-    class Pong: public Event::Base
-    {
-        enum {channel=CHANNEL_100};
-
-
-    public:
-        static Base* construct(const route_t &r)
-        {
-            Base* z=new Pong(r);
-            return z;
-        }
-        Pong(const route_t&r)
-            :Base(prodtestEventEnum::Pong,channel,r) {}
-
-        void unpack(inBuffer& o)
-        {
-        }
-        void pack(outBuffer&o) const
-        {
-        }
-        void jdump(Json::Value &) const
-        {
-        }
-
-    };
 
 
     class AddTaskREQ: public Event::Base

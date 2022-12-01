@@ -40,17 +40,11 @@ bool prodtestServer::Service::handleEvent(const REF_getter<Event::Base>& e)
             const timerEvent::TickTimer*ev=static_cast<const timerEvent::TickTimer*>(e.operator ->());
             return true;
         }
-        if(webHandlerEventEnum::RequestIncoming==ID)
-            return on_RequestIncoming((const webHandlerEvent::RequestIncoming*)e.operator->());
-        if(telnetEventEnum::CommandEntered==ID)
-            return on_CommandEntered((const telnetEvent::CommandEntered*)e.operator->());
         if(systemEventEnum::startService==ID)
             return on_startService((const systemEvent::startService*)e.operator->());
 
         if(prodtestEventEnum::AddTaskREQ==ID)
             return on_AddTaskREQ((const prodtestEvent::AddTaskREQ*)e.operator->());
-        if(prodtestEventEnum::Ping==ID)
-            return on_Ping((const prodtestEvent::Ping*)e.operator->());
 
 
         if(rpcEventEnum::IncomingOnAcceptor==ID)
@@ -70,10 +64,6 @@ bool prodtestServer::Service::handleEvent(const REF_getter<Event::Base>& e)
 }
 
 
-bool prodtestServer::Service::on_CommandEntered(const telnetEvent::CommandEntered*)
-{
-    return true;
-}
 
 prodtestServer::Service::~Service()
 {
@@ -87,10 +77,6 @@ prodtestServer::Service::Service(const SERVICE_id& id, const std::string& nm,IIn
 {
 }
 
-bool prodtestServer::Service::on_RequestIncoming(const webHandlerEvent::RequestIncoming* )
-{
-    return true;
-}
 void registerprodtestServerService(const char* pn)
 {
     MUTEX_INSPECTOR;
@@ -113,14 +99,9 @@ void registerprodtestServerService(const char* pn)
 #include "../common/xor.h"
 bool prodtestServer::Service::on_AddTaskREQ(const prodtestEvent::AddTaskREQ* e)
 {
-
-    std::string xored=xor_encode_string(e->sampleString,"123");
+    logErr2("@@ %s",__PRETTY_FUNCTION__);
+    std::string xored=e->sampleString+"123";
     passEvent(new prodtestEvent::AddTaskRSP(e->session,xored,poppedFrontRoute(e->route)));
     return true;
 }
 
-bool prodtestServer::Service::on_Ping(const prodtestEvent::Ping* e)
-{
-    passEvent(new prodtestEvent::Pong(poppedFrontRoute(e->route)));
-    return true;
-}

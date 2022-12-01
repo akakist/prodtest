@@ -76,8 +76,6 @@ namespace prodtestWebServer
         ~Service();
 
 
-        bool on_CommandEntered(const telnetEvent::CommandEntered*);
-        bool on_RequestIncoming(const webHandlerEvent::RequestIncoming* e);
         bool on_RequestIncoming(const httpEvent::RequestIncoming*);
         bool on_AddTaskRSP(const prodtestEvent::AddTaskRSP*e);
 
