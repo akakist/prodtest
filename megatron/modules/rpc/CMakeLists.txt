@@ -1,0 +1,14 @@
+cmake_minimum_required (VERSION 2.6)
+
+include_directories(../../lib/miniupnp-master)
+add_library(core-rpc SHARED
+    rpc.cpp
+    rpcService.cpp
+    upnp_tr.c
+)
+
+target_link_libraries(core-rpc megatron-core pthread)
+
+install(TARGETS core-rpc DESTINATION ${PLUGIN_TARGET_DIR})
+
+

@@ -1,0 +1,6 @@
+Build/
+.DS_Store
+
+qt/build-pt-Desktop_Qt_5_15_2_clang_64bit-Debug/
+qt/build-pt-Desktop_Qt_5_15_2_clang_64bit-Release/
+qt/pt/pt.pro.user
