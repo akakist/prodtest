@@ -387,7 +387,7 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
     for(auto &i:m_bindAddr_main)
     {
         const msockaddr_in &addr=i;
-        if(e->socketDescription=="RPC_UL")
+        if(!strcmp(e->socketDescription,"RPC_UL"))
         {
             if(e->rebind)
             {
