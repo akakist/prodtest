@@ -45,10 +45,13 @@
 SocketIO::Service::~Service()
 {
     m_isTerminating=true;
-    int err=pthread_join(m_pthread_id_worker,NULL);
-    if(err)
+    for(auto& p: m_pthread_ids_worker)
     {
-        printf(RED("%s pthread_join: %s"),__PRETTY_FUNCTION__,strerror(errno));
+        int err=pthread_join(p,NULL);
+        if(err)
+        {
+            printf(RED("%s pthread_join: %s"),__PRETTY_FUNCTION__,strerror(errno));
+        }
     }
 
 
@@ -82,9 +85,14 @@ SocketIO::Service::Service(const SERVICE_id& id, const std::string& nm, IInstanc
 #endif
         m_listen_backlog=ifa->getConfig()->get_int64_t("listen_backlog",128,"");
 
-        if(pthread_create(&m_pthread_id_worker,NULL,worker__,this))
+        for(int i=0;i<5;i++)
         {
-            throw CommonError("pthread_create: errno %d",errno);
+            pthread_t pt;
+            if(pthread_create(&pt,NULL,worker__,this))
+            {
+                throw CommonError("pthread_create: errno %d",errno);
+            }
+            m_pthread_ids_worker.push_back(pt);
         }
     }
     catch(...)

@@ -103,7 +103,7 @@ private:
 #ifdef WITH_TCP_STATS
     __stats m_stats;
 #endif
-    pthread_t m_pthread_id_worker;
+    std::vector<pthread_t> m_pthread_ids_worker;
     pthread_t m_pthread_id_acceptor;
     int64_t m_listen_backlog;
     const int64_t maxOutBufferSize;
