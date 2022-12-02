@@ -21,6 +21,8 @@ bool prodtestWebServer::Service::on_startService(const systemEvent::startService
 
     sendEvent(ServiceEnum::HTTP,new httpEvent::DoListen(bindAddr,ListenerBase::serviceId));
     sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(TIMER_PUSH_NOOP,NULL,NULL,1.5,ListenerBase::serviceId));
+//    sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
+
     return true;
 }
 
@@ -167,7 +169,7 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 
 //        for(int i=0;i<10;i++)
         {
-            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
+            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
         }
         return true;
     }

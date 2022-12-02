@@ -105,7 +105,8 @@ bool prodtestServer::Service::on_AddTaskREQ(const prodtestEvent::AddTaskREQ* e)
         printf("cnt %d\n",cnt);
     }
     std::string xored=e->sampleString+"123";
-    passEvent(new prodtestEvent::AddTaskRSP(e->session,xored,poppedFrontRoute(e->route)));
+
+    passEvent(new prodtestEvent::AddTaskRSP(e->session,xored,e->count,poppedFrontRoute(e->route)));
     return true;
 }
 
