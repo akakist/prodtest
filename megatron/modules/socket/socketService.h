@@ -37,7 +37,6 @@ public:
     {
         M_LOCK(this);
         m_container.erase(sid);
-        logErr2("m_container.size() %d",m_container.size());
     }
     std::map<SOCKET_id,REF_getter<epoll_socket_info> > getContainer()
     {
@@ -63,7 +62,6 @@ public:
     {
         M_LOCK(this);
         m_container.insert(std::make_pair(esi->m_id,esi));
-        logErr2("m_container.size() %d",m_container.size());
     }
 
     void clear()
