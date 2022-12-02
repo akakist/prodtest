@@ -1153,7 +1153,7 @@ bool  SocketIO::Service::on_AddToConnectTCP(const socketEvent::AddToConnectTCP*e
 
     if (CONTAINER(sock)==-1)
     {
-        logErr2("if (CONTAINER(sock)==-1)");
+        logErr2("cannot create socket");
         return true;
     }
     {

@@ -158,16 +158,20 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 {
 
     HTTP::Response resp;
-//    auto S=check_session(e->req,resp);
-//    S->esi=e->esi;
+    auto S=check_session(e->req,resp);
+    S->esi=e->esi;
 
-    if(0){
+    if(1){
 
         std::string query_string=e->req->params["query_string"];
-//        sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
+
+//        for(int i=0;i<10;i++)
+        {
+            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
+        }
         return true;
     }
-    if(1)
+    if(0)
     {
         resp.content="<div>received response </div>";
         resp.makeResponse(e->esi);
