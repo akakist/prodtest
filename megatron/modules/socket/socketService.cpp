@@ -348,7 +348,7 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
     const REF_getter<epoll_socket_info>& esi=__EV_;
     if(esi->m_socketType!=SOCK_STREAM)
     {
-        throw CommonError("if(esi->m_socketType!=SOCK_STREAM) %s",esi->socketDescription.c_str());
+        throw CommonError("if(esi->m_socketType!=SOCK_STREAM) %s",esi->socketDescription);
     }
     if(esi->inConnection)
     {
@@ -555,7 +555,7 @@ void SocketIO::Service::onEPOLLERR(const REF_getter<epoll_socket_info>& esi)
 
     if(esi->m_socketType!=SOCK_STREAM)
     {
-        throw CommonError("if(esi->m_socketType!=SOCK_STREAM) %s %s",esi->socketDescription.c_str(),__PRETTY_FUNCTION__);
+        throw CommonError("if(esi->m_socketType!=SOCK_STREAM) %s %s",esi->socketDescription,__PRETTY_FUNCTION__);
     }
 
     XTRY;

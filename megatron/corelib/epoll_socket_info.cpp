@@ -255,7 +255,7 @@ bool epoll_socket_info::closed()
 
 epoll_socket_info::epoll_socket_info(const int &_socketType, const STREAMTYPE &_streamtype, const SOCKET_id& _id, const SOCKET_fd& _fd,
                                      const route_t& _route,
-                                     const int64_t& _maxOutBufferSize, const std::string& _socketDescription, bool (*__bufferVerify)(const std::string&), const REF_getter<NetworkMultiplexor> &_multiplexor):
+                                     const int64_t& _maxOutBufferSize, const char *_socketDescription, bool (*__bufferVerify)(const std::string&), const REF_getter<NetworkMultiplexor> &_multiplexor):
     m_socketType(_socketType),
     m_streamType(_streamtype),
     m_id(_id),

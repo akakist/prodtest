@@ -11,12 +11,12 @@ namespace socketEvent
         {
             return NULL;
         }
-        AddToConnectTCP(const SOCKET_id& _socketId,const msockaddr_in  &_addr, const std::string& _socketDescription, bool (*_bufferVerify)(const std::string& s),const route_t & r):
+        AddToConnectTCP(const SOCKET_id& _socketId,const msockaddr_in  &_addr, const char* _socketDescription, bool (*_bufferVerify)(const std::string& s),const route_t & r):
             NoPacked(socketEventEnum::AddToConnectTCP,r),
             socketId(_socketId),addr(_addr),socketDescription(_socketDescription),bufferVerify(_bufferVerify) {}
         const SOCKET_id socketId;
         const msockaddr_in  addr;
-        const std::string socketDescription;
+        const char* socketDescription;
         bool (*bufferVerify)(const std::string& s);
         void jdump(Json::Value &j) const
         {

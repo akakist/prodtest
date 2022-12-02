@@ -104,7 +104,7 @@ public:
     const unsigned int maxOutBufferSize;
 
     /// any text of socket for debugging
-    const std::string socketDescription;
+    const char* socketDescription;
 
     ///  used to check buffer available for processing
     bool (*bufferVerify)(const std::string& s);
@@ -113,7 +113,7 @@ public:
 
 
     epoll_socket_info(const int& socketType, const STREAMTYPE &_streamtype,const SOCKET_id& _id,const SOCKET_fd& _fd, const route_t& _route,
-                      const int64_t& _maxOutBufferSize, const std::string& _socketDescription,         bool (*__bufferVerify)(const std::string&),
+                      const int64_t& _maxOutBufferSize, const char* _socketDescription,         bool (*__bufferVerify)(const std::string&),
                       const REF_getter<NetworkMultiplexor>& _multiplexor);
 
     virtual ~epoll_socket_info();

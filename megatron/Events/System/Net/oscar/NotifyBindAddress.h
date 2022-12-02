@@ -11,7 +11,7 @@ namespace oscarEvent
         {
             return NULL;
         }
-        NotifyBindAddress(const REF_getter<epoll_socket_info> & __S,const std::string& _socketDescription,bool _rebind, const route_t&r)
+        NotifyBindAddress(const REF_getter<epoll_socket_info> & __S,const char* _socketDescription,bool _rebind, const route_t&r)
             :NoPacked(oscarEventEnum::NotifyBindAddress,r),
              esi(__S),socketDescription(_socketDescription),rebind(_rebind)
         {
@@ -20,7 +20,7 @@ namespace oscarEvent
         {
         }
         const REF_getter<epoll_socket_info>  esi;
-        const std::string socketDescription;
+        const char* socketDescription;
         const bool rebind;
     };
 
