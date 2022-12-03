@@ -508,6 +508,7 @@ bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEm
 {
     MUTEX_INSPECTOR;
 
+    return true;
     S_LOG("on_NotifyOutBufferEmpty");
 //    DBG(logErr2("on_NotifyOutBufferEmpty %s",e->route.dump().c_str()));
 

@@ -45,14 +45,12 @@ public:
     std::vector<struct kevent> extractEvents();
     int getKqueue();
 #endif
-#ifdef     HAVE_EPOLL
-#endif
 
     ~NetworkMultiplexor();
 
     void sockAddReadOnNew(epoll_socket_info *esi);
 
-
+    int add_counter=0;
 
 };
 

@@ -157,6 +157,14 @@ void epoll_socket_info::close(const std::string & reason)
         CONTAINER(m_fd)=-1;
 
     }
+#ifdef HAVE_KQUEUE
+                                struct kevent ev1,ev2;
+                                EV_SET(&ev1,CONTAINER(get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
+                                EV_SET(&ev2,CONTAINER(get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
+                                multiplexor->addEvent(ev1);
+                                multiplexor->addEvent(ev2);
+#endif
+
 }
 
 epoll_socket_info::~epoll_socket_info()

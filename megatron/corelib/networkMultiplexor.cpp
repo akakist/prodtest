@@ -19,6 +19,10 @@ NetworkMultiplexor::~NetworkMultiplexor()
 }
 
 
+void NetworkMultiplexor::sockRemove(epoll_socket_info* esi)
+{
+
+}
 
 void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
 {
@@ -27,7 +31,7 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
 #ifdef HAVE_EPOLL
     struct epoll_event evz;
     evz.data.u64 = CONTAINER(esi->m_id);
-    evz.events = EPOLLIN;
+    evz.events = EPOLLIN|EPOLLOUT;
     int fd=CONTAINER(esi->get_fd());
     if(fd!=-1)
     {
@@ -46,9 +50,16 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
     int fd=CONTAINER(esi->get_fd());
     if(fd!=-1)
     {
-        struct kevent ev;
-        EV_SET(&ev,fd,EVFILT_READ,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
-        addEvent(ev);
+        {
+            struct kevent ev;
+            EV_SET(&ev,fd,EVFILT_READ|EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
+            addEvent(ev);
+        }
+//        {
+//            struct kevent ev;
+//            EV_SET(&ev,fd,EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
+//            addEvent(ev);
+//        }
     }
     else throw CommonError("fd==-1");
 

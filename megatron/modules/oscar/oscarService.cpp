@@ -124,7 +124,7 @@ bool Oscar::Service::on_StreamRead(const socketEvent::StreamRead* evt)
                                 }
                                 else if(b.remains()==len)
                                 {
-//                                    DBG(logErr2("b.remains()==len %d %d",b.remains(),len));
+                                    DBG(logErr2("b.remains()==len %d %d",b.remains(),len));
                                 }
                                 else if(b.remains()>len)
                                 {

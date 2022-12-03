@@ -61,8 +61,12 @@ public:
 
     void add(const REF_getter<epoll_socket_info>& esi)
     {
-        M_LOCK(this);
-        m_container.insert(std::make_pair(esi->m_id,esi));
+        multiplexor->sockAddReadOnNew(esi.operator ->());
+
+        {
+            M_LOCK(this);
+            m_container.insert(std::make_pair(esi->m_id,esi));
+        }
 
     }
 
