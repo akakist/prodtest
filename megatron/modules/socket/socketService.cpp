@@ -743,9 +743,9 @@ void SocketIO::Service::worker()
             auto evs=m_socks->multiplexor->extractEvents();
 
 
-            struct kevent evList[1024];
+            struct kevent evList[128];
 
-            int nev = kevent(m_socks->multiplexor->getKqueue(), &evs[0], evs.size(), evList, 1024, &ts);
+            int nev = kevent(m_socks->multiplexor->getKqueue(), &evs[0], evs.size(), evList, sizeof(evList), &ts);
             if(m_isTerminating) return;
             if (nev < 0)
             {
@@ -776,10 +776,10 @@ void SocketIO::Service::worker()
                         {
                             S_LOG("EV_EOF");
                             struct kevent ev1,ev2;
-                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-                            m_socks->multiplexor->addEvent(ev1);
-                            m_socks->multiplexor->addEvent(ev2);
+//                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
+//                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
+//                            m_socks->multiplexor->addEvent(ev1);
+//                            m_socks->multiplexor->addEvent(ev2);
                             if(!esi->closed())
                                 closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
@@ -787,11 +787,11 @@ void SocketIO::Service::worker()
                         else if(l.flags & EV_ERROR)
                         {
                             S_LOG("EV_ERROR");
-                            struct kevent ev1,ev2;
-                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-                            m_socks->multiplexor->addEvent(ev1);
-                            m_socks->multiplexor->addEvent(ev2);
+//                            struct kevent ev1,ev2;
+//                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
+//                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
+//                            m_socks->multiplexor->addEvent(ev1);
+//                            m_socks->multiplexor->addEvent(ev2);
                             if(!esi->closed())
                                 closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
