@@ -743,7 +743,7 @@ void SocketIO::Service::worker()
             auto evs=m_socks->multiplexor->extractEvents();
 
 
-            struct kevent evList[128];
+            struct kevent evList[1024];
 
             int nev = kevent(m_socks->multiplexor->getKqueue(), &evs[0], evs.size(), evList, sizeof(evList), &ts);
             if(m_isTerminating) return;

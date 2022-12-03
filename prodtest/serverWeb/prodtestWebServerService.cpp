@@ -163,7 +163,7 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
     auto S=check_session(e->req,resp);
     S->esi=e->esi;
 
-    if(0){
+    if(1){
 
         std::string query_string=e->req->params["query_string"];
 
@@ -173,7 +173,7 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
         }
         return true;
     }
-    if(1)
+    if(0)
     {
         resp.content="<div>received response </div>";
         resp.makeResponse(e->esi);
