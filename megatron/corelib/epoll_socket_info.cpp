@@ -74,23 +74,25 @@ void epoll_socket_info::write_(const std::string&s)
             if(s.size()+m_outBuffer.size()>maxOutBufferSize)
                 throw CommonError("socket outBuffer size overflow %ld",maxOutBufferSize);
             m_outBuffer.append(s.data(),s.size());
-#ifdef HAVE_KQUEUE
-            {
-                struct kevent ev2;
-                EV_SET(&ev2,CONTAINER(m_fd),EVFILT_WRITE,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
-                multiplexor->addEvent(ev2);
-            }
-#elif defined HAVE_EPOLL
-            struct epoll_event evtz;
-            evtz.events=EPOLLIN|EPOLLOUT;
-            evtz.data.u64=CONTAINER(m_id);
+            multiplexor->sockStartWrite(this);
+            //m_outBuffer.send(CONTAINER(m_fd),this);
+//#ifdef HAVE_KQUEUE
+//            {
+//                struct kevent ev2;
+//                EV_SET(&ev2,CONTAINER(m_fd),EVFILT_WRITE,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
+//                multiplexor->addEvent(ev2);
+//            }
+//#elif defined HAVE_EPOLL
+//            struct epoll_event evtz;
+//            evtz.events=EPOLLIN|EPOLLOUT;
+//            evtz.data.u64=CONTAINER(m_id);
 
-            if (epoll_ctl(multiplexor->m_epoll.m_epollFd, EPOLL_CTL_MOD, CONTAINER(get_fd()), &evtz) < 0)
-            {
-                logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(get_fd()), errno);
-            }
+//            if (epoll_ctl(multiplexor->m_epoll.m_epollFd, EPOLL_CTL_MOD, CONTAINER(get_fd()), &evtz) < 0)
+//            {
+//                logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(get_fd()), errno);
+//            }
 
-#endif
+//#endif
             XPASS;
         }
         XPASS;
@@ -111,8 +113,9 @@ void epoll_socket_info::close(const std::string & reason)
     DBG(logErr2("epoll_socket_info::close %s",reason.c_str()));
     XTRY;
     std::string sType;
-    if(CONTAINER(get_fd())!=-1)
+    if(CONTAINER(get_fd())==-1)
     {
+        return;
     }
 
     if(this->m_streamType==epoll_socket_info::STREAMTYPE_ACCEPTED)
@@ -158,7 +161,7 @@ void epoll_socket_info::close(const std::string & reason)
 
     }
 #ifdef HAVE_KQUEUE
-                                struct kevent ev1,ev2;
+//                                struct kevent ev1,ev2;
 //                                EV_SET(&ev1,CONTAINER(get_fd()),0,EV_DELETE,0,0,(void*)(long)CONTAINER(m_id));
 //                                EV_SET(&ev2,CONTAINER(get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
 //                                multiplexor->addEvent(ev1);
@@ -172,6 +175,7 @@ epoll_socket_info::~epoll_socket_info()
     try {
         if(CONTAINER(m_fd)!=-1)
         {
+            logErr2("@@ %s on nonclosed sock",__PRETTY_FUNCTION__);
 #ifdef _WIN32
             if(!::closesocket(CONTAINER(m_fd)))
 #else
@@ -234,21 +238,28 @@ size_t socketBuffersOut::size()
     M_LOCK(this);
     return container.size();
 }
-int socketBuffersOut::send(const SOCKET_fd &fd)
+int socketBuffersOut::send(const SOCKET_fd &fd, epoll_socket_info* esi)
 {
-    M_LOCK(this);
-    int res=::send(CONTAINER(fd),container.data(),container.size(),0);
-    if(res>0)
+    int res=0;
+    int restSize=0;
     {
-        if(res==container.size())
+        M_LOCK(this);
+        res=::send(CONTAINER(fd),container.data(),container.size(),0);
+        if(res>0)
         {
-            container.clear();
-        }
-        else
-        {
-            container=container.substr(res,container.size()-res);
+            if(res==container.size())
+            {
+                container.clear();
+            }
+            else
+            {
+                container=container.substr(res,container.size()-res);
+            }
+            restSize=container.size();
         }
     }
+    if(restSize==0)
+        esi->multiplexor->sockStopWrite(esi);
     return res;
 }
 

@@ -31,7 +31,7 @@ class   socketBuffersOut: public Mutexable
 public:
     void append(const char* data, size_t sz);
     size_t size();
-    int send(const SOCKET_fd &fd);
+    int send(const SOCKET_fd &fd, epoll_socket_info *esi);
 };
 class epoll_socket_info;
 /**

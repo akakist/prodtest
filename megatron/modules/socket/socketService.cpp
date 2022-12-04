@@ -422,12 +422,12 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
         {
             size_t sz;
             if(esi->closed()) return;
-            if(CONTAINER(esi->get_fd())==-1)
-                return;
+//            if(CONTAINER(esi->get_fd())==-1)
+//                return;
             sz=esi->m_outBuffer.size();
             if(sz)
             {
-                res=esi->m_outBuffer.send(esi->get_fd());
+                res=esi->m_outBuffer.send(esi->get_fd(),esi.operator->());
                 if(res>0)
                 {
 #ifdef WITH_TCP_STATS
@@ -435,14 +435,9 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
 #endif
                     m_total_send+=res;
 
-                    if(esi->m_outBuffer.size()==0)
+                    if(esi->m_outBuffer.size()==0 && esi->markedToDestroyOnSend)
                     {
-                        XTRY;
-                        if (esi->markedToDestroyOnSend)
-                        {
-                            need_to_close=true;
-                        }
-                        XPASS;
+                        need_to_close=true;
                     }
 
                     int fd=CONTAINER(esi->get_fd());
