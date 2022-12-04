@@ -15,19 +15,19 @@
 */
 
 
-struct socketBufferOut: public Refcountable, public Mutexable
-{
-    char *buffer;
-    size_t curpos;
-    size_t size;
-    ~socketBufferOut();
-    socketBufferOut(const char* data, size_t sz);
-    int sendSocket(const SOCKET_fd &fd);
-};
+//struct socketBufferOut: public Refcountable, public Mutexable
+//{
+//    char *buffer;
+//    size_t curpos;
+//    size_t size;
+//    ~socketBufferOut();
+//    socketBufferOut(const char* data, size_t sz);
+//    int sendSocket(const SOCKET_fd &fd);
+//};
 
 class   socketBuffersOut: public Mutexable
 {
-    std::deque<REF_getter<socketBufferOut> > container;
+    std::string container;
 public:
     void append(const char* data, size_t sz);
     size_t size();

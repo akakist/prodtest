@@ -192,42 +192,42 @@ epoll_socket_info::~epoll_socket_info()
 
 
 
-socketBufferOut::~socketBufferOut()
-{
-    if(buffer)
-    {
-        free(buffer);
-        buffer=NULL;
-    }
-}
-socketBufferOut::socketBufferOut(const char* data, size_t sz)
-{
-    buffer=(char*) malloc(sz);
-    if(!buffer) throw CommonError("malloc: errno %d",errno);
-    memcpy(buffer,data,sz);
-    size=sz;
-    curpos=0;
-}
-int socketBufferOut::sendSocket(const SOCKET_fd &fd)
+//socketBufferOut::~socketBufferOut()
+//{
+//    if(buffer)
+//    {
+//        free(buffer);
+//        buffer=NULL;
+//    }
+//}
+//socketBufferOut::socketBufferOut(const char* data, size_t sz)
+//{
+//    buffer=(char*) malloc(sz);
+//    if(!buffer) throw CommonError("malloc: errno %d",errno);
+//    memcpy(buffer,data,sz);
+//    size=sz;
+//    curpos=0;
+//}
+//int socketBufferOut::sendSocket(const SOCKET_fd &fd)
+//{
+//    M_LOCK(this);
+
+//    int res=::send(CONTAINER(fd),buffer+curpos,size-curpos,0);
+//    if(res>0) curpos+=res;
+//    if(curpos==size)
+//    {
+//        free(buffer);
+//        buffer=NULL;
+//        curpos=0;
+//        size=0;
+//    }
+//    return res;
+//}
+
+void socketBuffersOut::append(const const char* data, size_t sz)
 {
     M_LOCK(this);
-
-    int res=::send(CONTAINER(fd),buffer+curpos,size-curpos,0);
-    if(res>0) curpos+=res;
-    if(curpos==size)
-    {
-        free(buffer);
-        buffer=NULL;
-        curpos=0;
-        size=0;
-    }
-    return res;
-}
-
-void socketBuffersOut::append(const char* data, size_t sz)
-{
-    M_LOCK(this);
-    container.push_back(new socketBufferOut(data,sz));
+    container+=std::string(data,sz);
 }
 size_t socketBuffersOut::size()
 {
@@ -237,23 +237,19 @@ size_t socketBuffersOut::size()
 int socketBuffersOut::send(const SOCKET_fd &fd)
 {
     M_LOCK(this);
-    REF_getter<socketBufferOut> p(NULL);
+    int res=::send(CONTAINER(fd),container.data(),container.size(),0);
+    if(res>0)
     {
-        if(container.size())
+        if(res==container.size())
         {
-            p=container[0];
+            container.clear();
+        }
+        else
+        {
+            container=container.substr(res,container.size()-res);
         }
     }
-    if(p.valid())
-    {
-        int res=p->sendSocket(fd);
-        if(p->buffer==NULL)
-        {
-            container.pop_front();
-        }
-        return res;
-    }
-    return 0;
+    return res;
 }
 
 bool epoll_socket_info::closed()
@@ -281,10 +277,10 @@ epoll_socket_info::epoll_socket_info(const int &_socketType, const STREAMTYPE &_
 void epoll_socket_info::_inBuffer::append(const char* data, size_t size)
 {
     M_LOCK(this);
-    if(_mx_data.capacity()<_mx_data.size()+10000)
-    {
-        _mx_data.reserve(100000+_mx_data.size());
-    }
+//    if(_mx_data.capacity()<_mx_data.size()+10000)
+//    {
+//        _mx_data.reserve(100000+_mx_data.size());
+//    }
 
     _mx_data.append(data,size);
 }
