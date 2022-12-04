@@ -586,6 +586,7 @@ void *SocketIO::Service::worker__(void*p)
 
 void SocketIO::Service::worker()
 {
+    MUTEX_INSPECTOR;
 #if defined __MACH__
     pthread_setname_np("SocketIO");
 #else
@@ -602,6 +603,7 @@ void SocketIO::Service::worker()
 #endif
     while (1)
     {
+        MUTEX_INSPECTOR;
         XTRY;
         try
         {
@@ -634,6 +636,7 @@ void SocketIO::Service::worker()
             }
             if(socklist.size())
             {
+                MUTEX_INSPECTOR;
                 struct timeval tv;
                 tv.tv_sec=0;
                 tv.tv_usec=10000;
@@ -658,7 +661,8 @@ void SocketIO::Service::worker()
                 }
                 else
                 {
-                    if(r==-1)
+                    MUTEX_INSPECTOR;
+                   if(r==-1)
                     {
                         if(errno==EBADF)
                         {
@@ -675,12 +679,14 @@ void SocketIO::Service::worker()
 //            if(iUtils->isTerminating()) return NULL;
             int nfds;
             {
+                MUTEX_INSPECTOR;
                 nfds=epoll_wait(m_socks->multiplexor->m_epoll.m_epollFd,events,m_socks->multiplexor->m_epoll.size,m_socks->multiplexor->m_epoll.timeout_millisec);
             }
 
             int __ERRNO=errno;
             if (nfds==-1)
             {
+                MUTEX_INSPECTOR;
                 if(__ERRNO==EINTR)
                 {
                     continue;
@@ -691,6 +697,7 @@ void SocketIO::Service::worker()
                 std::map<SOCKET_id,REF_getter<epoll_socket_info> >cc=m_socks->getContainer();
                 for(auto & i : cc)
                 {
+                    MUTEX_INSPECTOR;
 
                     REF_getter<epoll_socket_info> &ss=i.second;
 
@@ -706,24 +713,29 @@ void SocketIO::Service::worker()
             }
             for (int i=0; i<nfds; i++)
             {
+                MUTEX_INSPECTOR;
                 XTRY;
                 SOCKET_id id;
                 CONTAINER(id)=events[i].data.u64;
                 REF_getter<epoll_socket_info> __EV=m_socks->getOrNull(id);
                 if (!__EV.valid())
                 {
+                    MUTEX_INSPECTOR;
                     continue;
                 }
                 if (events[i].events&EPOLLERR && !__EV->closed())
                 {
+                    MUTEX_INSPECTOR;
                     onEPOLLERR(__EV);
                 }
                 if (events[i].events&EPOLLIN && !__EV->closed())
                 {
+                    MUTEX_INSPECTOR;
                     onEPOLLIN(__EV);
                 }
                 if (events[i].events&EPOLLOUT && !__EV->closed())
                 {
+                    MUTEX_INSPECTOR;
                     onEPOLLOUT(__EV);
                 }
                 XPASS;
@@ -749,6 +761,7 @@ void SocketIO::Service::worker()
 
             }
             for (int i=0; i<nev; i++) {
+                MUTEX_INSPECTOR;
                 SOCKET_id sid;
                 CONTAINER(sid)=(long)evList[i].udata;
                 REF_getter<epoll_socket_info> esi=m_socks->getOrNull(sid);
@@ -764,11 +777,13 @@ void SocketIO::Service::worker()
 
                 if(l.filter==EVFILT_READ)
                 {
+                    MUTEX_INSPECTOR;
                     S_LOG("EVFILT_READ");
                     {
                         S_LOG("EV_ADD");
                         if(l.flags & EV_EOF)
                         {
+                            MUTEX_INSPECTOR;
                             S_LOG("EV_EOF");
 //                            struct kevent ev1,ev2;
 //                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
@@ -781,6 +796,7 @@ void SocketIO::Service::worker()
                         }
                         else if(l.flags & EV_ERROR)
                         {
+                            MUTEX_INSPECTOR;
                             S_LOG("EV_ERROR");
 //                            struct kevent ev1,ev2;
 //                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
@@ -801,6 +817,7 @@ void SocketIO::Service::worker()
                 }
                 else if(l.filter==EVFILT_WRITE)
                 {
+                    MUTEX_INSPECTOR;
 
                     S_LOG("EVFILT_WRITE");
 //                    if(l.flags&EV_ADD)
@@ -833,6 +850,7 @@ void SocketIO::Service::worker()
                         }
                         else
                         {
+                            MUTEX_INSPECTOR;
                             onEPOLLOUT(esi);
                             continue;
                         }
@@ -861,6 +879,7 @@ void SocketIO::Service::closeSocket(const REF_getter<epoll_socket_info>&esi,cons
 
     if(esi->m_streamType==epoll_socket_info::STREAMTYPE_CONNECTED)
     {
+        MUTEX_INSPECTOR;
         if(esi->inConnection)
         {
             passEvent(new socketEvent::ConnectFailed(esi,esi->remote_name,errNo,poppedFrontRoute(esi->m_route)));
@@ -872,6 +891,7 @@ void SocketIO::Service::closeSocket(const REF_getter<epoll_socket_info>&esi,cons
     }
     else if(esi->m_streamType==epoll_socket_info::STREAMTYPE_ACCEPTED)
     {
+        MUTEX_INSPECTOR;
         passEvent(new socketEvent::Disaccepted(esi,reason,poppedFrontRoute(esi->m_route)));
 
     }
@@ -1084,6 +1104,7 @@ bool  SocketIO::Service::on_AddToListenTCP(const socketEvent::AddToListenTCP*ev)
     }
 
     {
+        MUTEX_INSPECTOR;
         int i = 1;
         if(setsockopt(CONTAINER(nesi->get_fd()),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
         {
@@ -1152,6 +1173,7 @@ bool  SocketIO::Service::on_AddToConnectTCP(const socketEvent::AddToConnectTCP*e
     nesi->inConnection=true;
 
     {
+        MUTEX_INSPECTOR;
         int i = 1;
         if(setsockopt(CONTAINER(sock),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
         {
@@ -1183,6 +1205,7 @@ bool  SocketIO::Service::on_AddToConnectTCP(const socketEvent::AddToConnectTCP*e
     }
 
     {
+        MUTEX_INSPECTOR;
         struct linger l_ {};
         l_.l_onoff=1;
         l_.l_linger=(u_short)5;

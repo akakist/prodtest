@@ -65,6 +65,7 @@ Json::Value epoll_socket_info::wdump()
 
 void epoll_socket_info::write_(const std::string&s)
 {
+    MUTEX_INSPECTOR;
     XTRY;
     if(!closed())
     {
@@ -101,6 +102,7 @@ void epoll_socket_info::write_(const std::string&s)
 }
 void epoll_socket_info::write_(const char *s, const size_t &sz)
 {
+    MUTEX_INSPECTOR;
     XTRY;
     write_(std::string(s,sz));
 
@@ -109,6 +111,7 @@ void epoll_socket_info::write_(const char *s, const size_t &sz)
 
 void epoll_socket_info::close(const std::string & reason)
 {
+    MUTEX_INSPECTOR;
 
     DBG(logErr2("epoll_socket_info::close %s",reason.c_str()));
     XTRY;
@@ -230,16 +233,19 @@ epoll_socket_info::~epoll_socket_info()
 
 void socketBuffersOut::append(const char* data, size_t sz)
 {
+    MUTEX_INSPECTOR;
     M_LOCK(this);
     container+=std::string(data,sz);
 }
 size_t socketBuffersOut::size()
 {
+    MUTEX_INSPECTOR;
     M_LOCK(this);
     return container.size();
 }
 int socketBuffersOut::send(const SOCKET_fd &fd, epoll_socket_info* esi)
 {
+    MUTEX_INSPECTOR;
     int res=0;
     int restSize=0;
     {
@@ -297,11 +303,13 @@ void epoll_socket_info::_inBuffer::append(const char* data, size_t size)
 }
 size_t epoll_socket_info::_inBuffer::size()
 {
+    MUTEX_INSPECTOR;
     M_LOCK(this);
     return _mx_data.size();
 }
 std::string epoll_socket_info::_inBuffer::extract_all()
 {
+    MUTEX_INSPECTOR;
     M_LOCK(this);
     std::string ret=_mx_data;
     _mx_data.clear();
