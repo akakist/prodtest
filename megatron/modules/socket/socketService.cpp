@@ -684,34 +684,34 @@ void SocketIO::Service::worker()
                 nfds=epoll_wait(m_socks->multiplexor->m_epoll.m_epollFd,events,m_socks->multiplexor->m_epoll.size,m_socks->multiplexor->m_epoll.timeout_millisec);
             }
 
-            int __ERRNO=errno;
-            if (nfds==-1)
-            {
-                MUTEX_INSPECTOR;
-                if(__ERRNO==EINTR)
-                {
-                    continue;
-                }
-                logErr2("epoll_wait: __ERRNO %d",__ERRNO);
+//            int __ERRNO=errno;
+//            if (nfds==-1)
+//            {
+//                MUTEX_INSPECTOR;
+//                if(__ERRNO==EINTR)
+//                {
+//                    continue;
+//                }
+//                logErr2("epoll_wait: __ERRNO %d",__ERRNO);
 
 
-                std::map<SOCKET_id,REF_getter<epoll_socket_info> >cc=m_socks->getContainer();
-                for(auto & i : cc)
-                {
-                    MUTEX_INSPECTOR;
+//                std::map<SOCKET_id,REF_getter<epoll_socket_info> >cc=m_socks->getContainer();
+//                for(auto & i : cc)
+//                {
+//                    MUTEX_INSPECTOR;
 
-                    REF_getter<epoll_socket_info> &ss=i.second;
+//                    REF_getter<epoll_socket_info> &ss=i.second;
 
-                    if(ss->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
-                    {
-                        closeSocket(ss,"epoll_wait failed",__ERRNO);
-                        m_socks->remove(ss->m_id);
-                        const REF_getter<socketEvent::AddToListenTCP> e=new socketEvent::AddToListenTCP(ss->m_id,ss->local_name,ss->socketDescription,true,ss->bufferVerify,ss->m_route);
-                        on_AddToListenTCP(e.operator ->());
-                    }
-                }
-                continue;
-            }
+//                    if(ss->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
+//                    {
+//                        closeSocket(ss,"epoll_wait failed",__ERRNO);
+//                        m_socks->remove(ss->m_id);
+//                        const REF_getter<socketEvent::AddToListenTCP> e=new socketEvent::AddToListenTCP(ss->m_id,ss->local_name,ss->socketDescription,true,ss->bufferVerify,ss->m_route);
+//                        on_AddToListenTCP(e.operator ->());
+//                    }
+//                }
+//                continue;
+//            }
             for (int i=0; i<nfds; i++)
             {
                 MUTEX_INSPECTOR;
@@ -724,17 +724,17 @@ void SocketIO::Service::worker()
                     MUTEX_INSPECTOR;
                     continue;
                 }
-                if (events[i].events&EPOLLERR && !__EV->closed())
+                if (events[i].events&EPOLLERR)
                 {
                     MUTEX_INSPECTOR;
                     onEPOLLERR(__EV);
                 }
-                if (events[i].events&EPOLLIN && !__EV->closed())
+                if (events[i].events&EPOLLIN )
                 {
                     MUTEX_INSPECTOR;
                     onEPOLLIN(__EV);
                 }
-                if (events[i].events&EPOLLOUT && !__EV->closed())
+                if (events[i].events&EPOLLOUT)
                 {
                     MUTEX_INSPECTOR;
                     onEPOLLOUT(__EV);
@@ -786,26 +786,14 @@ void SocketIO::Service::worker()
                         {
                             MUTEX_INSPECTOR;
                             S_LOG("EV_EOF");
-//                            struct kevent ev1,ev2;
-//                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            m_socks->multiplexor->addEvent(ev1);
-//                            m_socks->multiplexor->addEvent(ev2);
-                            if(!esi->closed())
-                                closeSocket(esi,"EV_EOF",l.data);
+                            closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
                         }
                         else if(l.flags & EV_ERROR)
                         {
                             MUTEX_INSPECTOR;
                             S_LOG("EV_ERROR");
-//                            struct kevent ev1,ev2;
-//                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            m_socks->multiplexor->addEvent(ev1);
-//                            m_socks->multiplexor->addEvent(ev2);
-                            if(!esi->closed())
-                                closeSocket(esi,"EV_EOF",l.data);
+                            closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
                         }
                         else
@@ -826,27 +814,12 @@ void SocketIO::Service::worker()
                         S_LOG("EV_ADD");
                         if(l.flags & EV_EOF)
                         {
-                            S_LOG("EV_EOF");
-//                            struct kevent ev1,ev2;
-//                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            m_socks->multiplexor->addEvent(ev1);
-//                            m_socks->multiplexor->addEvent(ev2);
-
-                            if(!esi->closed())
-                                closeSocket(esi,"EV_EOF",0);
+                            closeSocket(esi,"EV_EOF",0);
                             m_socks->remove(esi->m_id);
                         }
                         else if(l.flags & EV_ERROR)
                         {
-                            S_LOG("EV_ERROR");
-//                            struct kevent ev1,ev2;
-//                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            m_socks->multiplexor->addEvent(ev1);
-//                            m_socks->multiplexor->addEvent(ev2);
-                            if(!esi->closed())
-                                closeSocket(esi,"EV_EOF",l.data);
+                            closeSocket(esi,"EV_EOF",l.data);
                             m_socks->remove(esi->m_id);
                         }
                         else
@@ -1147,9 +1120,6 @@ bool  SocketIO::Service::on_AddToListenTCP(const socketEvent::AddToListenTCP*ev)
     route_t r=nesi->m_route;
     r.pop_front();
     passEvent(new socketEvent::NotifyBindAddress(nesi,ev->socketDescription,ev->rebind,r));
-
-
-//    logErr2("@@ %s",__PRETTY_FUNCTION__);
 
     m_socks->multiplexor->sockAddReadOnNew(nesi.operator ->());
     m_socks->add(nesi);
