@@ -61,7 +61,7 @@ public:
 
     void add(const REF_getter<epoll_socket_info>& esi)
     {
-        multiplexor->sockAddReadOnNew(esi.operator ->());
+//        multiplexor->sockAddReadOnNew(esi.operator ->());
 
         {
             M_LOCK(this);
