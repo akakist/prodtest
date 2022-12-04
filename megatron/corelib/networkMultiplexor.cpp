@@ -106,16 +106,17 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
     {
         struct epoll_event evtz {};
         evtz.events=EPOLLIN|EPOLLOUT;
-        evtz.data.u64= static_cast<uint64_t>(CONTAINER(nesi->m_id));
+        evtz.data.u64= static_cast<uint64_t>(CONTAINER(esi->m_id));
 
-        if (epoll_ctl(m_socks->multiplexor->m_epoll.m_epollFd, EPOLL_CTL_ADD, CONTAINER(nesi->get_fd()), &evtz) < 0)
+        if (epoll_ctl(m_epoll.m_epollFd, EPOLL_CTL_ADD, CONTAINER(esi->get_fd()), &evtz) < 0)
         {
-            logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(nesi->get_fd()), errno);
+            logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
         }
 
     }
 
 #endif
+#ifdef HAVE_KQUEUE
     {
         struct kevent ev;
         EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
@@ -126,6 +127,7 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
         EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_READ,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
         addEvent(ev);
     }
+#endif
 
 }
 void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)

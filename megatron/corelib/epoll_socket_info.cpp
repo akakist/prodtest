@@ -228,7 +228,7 @@ epoll_socket_info::~epoll_socket_info()
 //    return res;
 //}
 
-void socketBuffersOut::append(const const char* data, size_t sz)
+void socketBuffersOut::append(const char* data, size_t sz)
 {
     M_LOCK(this);
     container+=std::string(data,sz);
