@@ -21,6 +21,8 @@ bool prodtestWebServer::Service::on_startService(const systemEvent::startService
 
     sendEvent(ServiceEnum::HTTP,new httpEvent::DoListen(bindAddr,ListenerBase::serviceId));
     sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(TIMER_PUSH_NOOP,NULL,NULL,1.5,ListenerBase::serviceId));
+//    sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
+
     return true;
 }
 
@@ -158,16 +160,20 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 {
 
     HTTP::Response resp;
-//    auto S=check_session(e->req,resp);
-//    S->esi=e->esi;
+    auto S=check_session(e->req,resp);
+    S->esi=e->esi;
 
-    if(0){
+    if(1){
 
         std::string query_string=e->req->params["query_string"];
-//        sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,ListenerBase::serviceId));
+
+//        for(int i=0;i<10;i++)
+        {
+            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
+        }
         return true;
     }
-    if(1)
+    if(0)
     {
         resp.content="<div>received response </div>";
         resp.makeResponse(e->esi);

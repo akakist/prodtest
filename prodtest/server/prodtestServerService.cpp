@@ -94,12 +94,19 @@ void registerprodtestServerService(const char* pn)
     XPASS;
 }
 
+int cnt=0;
 
 
 bool prodtestServer::Service::on_AddTaskREQ(const prodtestEvent::AddTaskREQ* e)
 {
+    cnt++;
+    if(cnt%1000==0)
+    {
+        printf("cnt %d\n",cnt);
+    }
     std::string xored=e->sampleString+"123";
-    passEvent(new prodtestEvent::AddTaskRSP(e->session,xored,poppedFrontRoute(e->route)));
+
+    passEvent(new prodtestEvent::AddTaskRSP(e->session,xored,e->count,poppedFrontRoute(e->route)));
     return true;
 }
 

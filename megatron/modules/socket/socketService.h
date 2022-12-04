@@ -33,11 +33,6 @@ public:
     SocketsContainerForSocketIO(): multiplexor(new NetworkMultiplexor)
     {}
     ~SocketsContainerForSocketIO();
-    void remove(const SOCKET_id& sid)
-    {
-        M_LOCK(this);
-        m_container.erase(sid);
-    }
     std::map<SOCKET_id,REF_getter<epoll_socket_info> > getContainer()
     {
         M_LOCK(this);
@@ -60,8 +55,12 @@ public:
 
     void add(const REF_getter<epoll_socket_info>& esi)
     {
-        M_LOCK(this);
-        m_container.insert(std::make_pair(esi->m_id,esi));
+
+        {
+            M_LOCK(this);
+            m_container.insert(std::make_pair(esi->m_id,esi));
+        }
+
     }
 
     void clear()

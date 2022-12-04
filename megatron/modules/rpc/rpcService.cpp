@@ -404,7 +404,7 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
             DBG(logErr2("--------GETSOCKNAME m_bindAddr_main retursn %s",addr.dump().c_str()));
 
 
-            DBG(logErr2("---------------e->sockType %s",e->socketDescription.c_str()));
+            DBG(logErr2("---------------e->sockType %s",e->socketDescription));
             {
                 M_LOCK(sharedAddr);
                 sharedAddr.m_networkInitialized=true;

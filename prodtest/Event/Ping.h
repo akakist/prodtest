@@ -20,23 +20,24 @@ namespace prodtestEvent {
             return new AddTaskREQ(r);
         }
         AddTaskREQ(const std::string& _session,
-                const std::string& _sampleString,
+                const std::string& _sampleString,int _count,
                 const route_t&r)
             :Base(prodtestEventEnum::AddTaskREQ,channel,r),
               session(_session),
-              sampleString(_sampleString)
+              sampleString(_sampleString),count(_count)
         {}
         AddTaskREQ(const route_t&r)
             :Base(prodtestEventEnum::AddTaskREQ,channel,r) {}
         std::string session;
         std::string sampleString;
+        int count;
         void unpack(inBuffer& o)
         {
-            o>>session>>sampleString;
+            o>>session>>sampleString>>count;
         }
         void pack(outBuffer&o) const
         {
-            o<<session<<sampleString;
+            o<<session<<sampleString<<count;
         }
         void jdump(Json::Value &) const
         {
@@ -55,23 +56,24 @@ namespace prodtestEvent {
             return new AddTaskRSP(r);
         }
         AddTaskRSP(const std::string& _session,
-                const std::string& _sampleString,
+                const std::string& _sampleString,int _count,
                 const route_t&r)
             :Base(prodtestEventEnum::AddTaskRSP,channel,r),
               session(_session),
-              sampleString(_sampleString)
+              sampleString(_sampleString),count(_count)
         {}
         AddTaskRSP(const route_t&r)
             :Base(prodtestEventEnum::AddTaskRSP,channel,r) {}
         std::string session;
         std::string sampleString;
+        int count;
         void unpack(inBuffer& o)
         {
-            o>>session>>sampleString;
+            o>>session>>sampleString>>count;
         }
         void pack(outBuffer&o) const
         {
-            o<<session<<sampleString;
+            o<<session<<sampleString<<count;
         }
         void jdump(Json::Value &) const
         {

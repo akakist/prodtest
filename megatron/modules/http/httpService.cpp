@@ -185,13 +185,25 @@ bool HTTP::Service::on_StreamRead(const socketEvent::StreamRead* evt)
     REF_getter<HTTP::Request> W=_stuff->getRequestOrNull(evt->esi->m_id);
     if (!W.valid())
     {
-        _stuff->insert(evt->esi->m_id,new HTTP::Request());
-        W=_stuff->getRequestOrNull(evt->esi->m_id);
-        if(!W.valid())
-        {
-            throw CommonError("invalid behaviour %s %d",__FILE__,__LINE__);
-        }
+//        throw CommonError("if (!W.valid())");
+        W=new HTTP::Request();
+        _stuff->insert(evt->esi->m_id,W);
+//        W=_stuff->getRequestOrNull(evt->esi->m_id);
+//        if(!W.valid())
+//        {
+//            throw CommonError("invalid behaviour %s %d",__FILE__,__LINE__);
+//        }
     }
+    if(0)
+    {
+        if(!W->sendRequestIncomingIsSent)
+        {
+            W->sendRequestIncomingIsSent=true;
+            passEvent(new httpEvent::RequestIncoming(W,evt->esi,evt->route));
+        }
+        return  true;
+    }
+
 
     W->m_last_io_time=time(NULL);
     if (W->parse_state.count(1)==0)
@@ -442,104 +454,7 @@ bool HTTP::Service::on_StreamRead(const socketEvent::StreamRead* evt)
     {
     }
 
-    std::set<std::string> docUrls;
-    std::string documentRoot;
-    std::map<std::string,HTTP::IoProtocol> protocols;
-    {
-        M_LOCK(mx);
-        docUrls=mx.docUrls;
-        documentRoot=mx.documentRoot;
-        protocols=mx.protocols;
-    }
-    for (auto& i: docUrls)
-    {
 
-        if (W->url.substr(0, i.size()) == i)
-        {
-
-
-            {
-                std::string fn=documentRoot + W->url;
-                std::string ext = iUtils->extractFileExt(fn);
-                if(!W->fileresponse.valid())
-                    W->fileresponse=new HTTP::Request::_fileresponse;
-                W->fileresponse->fileName=fn;
-                W->fileresponse->extension=ext;
-                send_other_from_disk_ext(evt->esi, W, fn, ext);
-                return true;
-            }
-        }
-
-    }
-#ifdef KALL
-    if(W->url.substr(0,7)=="/files/")
-    {
-        IDFSContent *fc=static_cast<IDFSContent*>(iInstance->getServiceOrCreate(ServiceEnum::DFSContent)->cast(UnknownCast::IDFSContent));
-        std::string bod;
-        if(fc->vf_get_http_file(W,bod))
-        {
-            std::string exten = iUtils->extractFileExt(W->url);
-            std::string out;
-            out+="HTTP/1.1 200 OK\r\n";
-            out+="Server: nginx/1.2.6 (Ubuntu)\r\n";
-            {
-                M_LOCK(mx);
-                auto i=mx.mime_types.find(exten);
-                if(i!=mx.mime_types.end())
-                    out+="Content-Type: "+i->second+"\r\n";
-                else
-                    out+="Content-Type: text/plain\r\n";
-            }
-            out+="Date: "+datef(time(NULL))+"\r\n";
-            out+="Content-Length: "+std::to_string(int64_t(bod.size()))+"\r\n";
-            out+="Accept-Ranges: bytes\r\n";
-            out+="Connection: close\r\n";
-            out+="\r\n";
-            out+=bod;
-            evt->esi->write_(out);
-            return true;
-        }
-        else
-        {
-            std::string a("HTTP/1.1 404 Not Found\r\n");
-            a.append("Server: nginx/1.2.6 (Ubuntu)\r\n");
-            a.append("Connection: close\r\n");
-            a.append("\r\n");
-            evt->esi->write_(a);
-            return true;
-        }
-    }
-#endif
-
-    for(auto& i:protocols)
-    {
-        if (W->url.substr(0, i.first.size()) == i.first)
-        {
-            std::string dfsUrl=W->url.substr(i.first.size(),W->url.size()-i.first.size());
-
-
-            std::string::size_type pz = dfsUrl.rfind(".", dfsUrl.size());
-            std::string ext;
-            std::string fn;
-            if (pz != std::string::npos)
-            {
-                ext=dfsUrl.substr(pz + 1, dfsUrl.size() - pz - 1);
-                dfsUrl=dfsUrl.substr(0, pz);
-
-            }
-
-            dfsUrl=iUtils->hex2bin(dfsUrl);
-            if(!W->fileresponse.valid())
-                W->fileresponse=new HTTP::Request::_fileresponse;
-
-            W->fileresponse->fileName=dfsUrl;
-            W->fileresponse->extension=ext;
-            W->fileresponse->io_protocol=i.second;
-            send_other_from_disk_ext(evt->esi, W, dfsUrl, ext);
-            return true;
-        }
-
-    }
     if(!W->sendRequestIncomingIsSent)
     {
         W->sendRequestIncomingIsSent=true;
@@ -593,6 +508,7 @@ bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEm
 {
     MUTEX_INSPECTOR;
 
+    return true;
     S_LOG("on_NotifyOutBufferEmpty");
 //    DBG(logErr2("on_NotifyOutBufferEmpty %s",e->route.dump().c_str()));
 
