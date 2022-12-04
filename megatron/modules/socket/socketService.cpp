@@ -407,7 +407,7 @@ void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
         }
 
 #endif
-
+        m_socks->multiplexor->sockStopWrite(esi.operator->());
         return;
         XPASS;
     }
@@ -775,7 +775,7 @@ void SocketIO::Service::worker()
                         if(l.flags & EV_EOF)
                         {
                             S_LOG("EV_EOF");
-                            struct kevent ev1,ev2;
+//                            struct kevent ev1,ev2;
 //                            EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
 //                            EV_SET(&ev2,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
 //                            m_socks->multiplexor->addEvent(ev1);
@@ -1146,16 +1146,16 @@ bool  SocketIO::Service::on_AddToConnectTCP(const socketEvent::AddToConnectTCP*e
     S_LOG(__FUNCTION__);
     int PF=ev->addr.family()==AF_INET?PF_INET:PF_INET6;
     SOCKET_fd sock=::socket (PF, SOCK_STREAM, IPPROTO_TCP);
-    REF_getter<epoll_socket_info> nesi=new epoll_socket_info(SOCK_STREAM,epoll_socket_info::STREAMTYPE_CONNECTED,ev->socketId,sock,ev->route,
-            maxOutBufferSize,ev->socketDescription,ev->bufferVerify,m_socks->multiplexor);
-
-    nesi->inConnection=true;
-
     if (CONTAINER(sock)==-1)
     {
         logErr2("cannot create socket");
         return true;
     }
+    REF_getter<epoll_socket_info> nesi=new epoll_socket_info(SOCK_STREAM,epoll_socket_info::STREAMTYPE_CONNECTED,ev->socketId,sock,ev->route,
+            maxOutBufferSize,ev->socketDescription,ev->bufferVerify,m_socks->multiplexor);
+
+    nesi->inConnection=true;
+
     {
         int i = 1;
         if(setsockopt(CONTAINER(sock),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
@@ -1206,30 +1206,7 @@ bool  SocketIO::Service::on_AddToConnectTCP(const socketEvent::AddToConnectTCP*e
     }
 #endif
     nesi->remote_name=ev->addr;
-#ifdef HAVE_KQUEUE
-//    {
-//        struct kevent ev;
-//        EV_SET(&ev,CONTAINER(nesi->get_fd()),EVFILT_WRITE,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(nesi->m_id));
-//        m_socks->multiplexor->addEvent(ev);
-//    }
-#endif
-#ifdef HAVE_EPOLL
-    {
-        struct epoll_event evtz {};
-        evtz.events=EPOLLIN|EPOLLOUT;
-        evtz.data.u64= static_cast<uint64_t>(CONTAINER(nesi->m_id));
-
-        if (epoll_ctl(m_socks->multiplexor->m_epoll.m_epollFd, EPOLL_CTL_ADD, CONTAINER(nesi->get_fd()), &evtz) < 0)
-        {
-            logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(nesi->get_fd()), errno);
-        }
-
-    }
-
-#endif
-
-
-    m_socks->multiplexor->sockAddReadOnNew(nesi.operator->());
+    m_socks->multiplexor->sockAddRWOnNew(nesi.operator->());
     m_socks->add(nesi);
 
     nesi->remote_name=sa;

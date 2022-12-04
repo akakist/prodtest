@@ -24,6 +24,110 @@ NetworkMultiplexor::~NetworkMultiplexor()
 
 //}
 
+void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
+{
+    XTRY;
+#ifdef HAVE_EPOLL
+    struct epoll_event evz;
+    evz.data.u64 = CONTAINER(esi->m_id);
+    evz.events = EPOLLOUT|EPOLLIN;
+    int fd=CONTAINER(esi->get_fd());
+    if(fd!=-1)
+    {
+        if (epoll_ctl(m_epoll.m_epollFd, EPOLL_CTL_MOD, fd, &evz) < 0)
+        {
+            logErr2("epoll_ctl add: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
+            if(!esi->closed())
+            {
+                esi->close("EPOLL_CTL_ADD");
+            }
+        }
+    }
+#endif
+#ifdef HAVE_KQUEUE
+
+    int fd=CONTAINER(esi->get_fd());
+    if(fd!=-1)
+    {
+        {
+            struct kevent ev;
+            EV_SET(&ev,fd,EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
+            addEvent(ev);
+        }
+    }
+    else throw CommonError("fd==-1");
+
+#endif
+
+    XPASS;
+
+}
+void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
+{
+    XTRY;
+#ifdef HAVE_EPOLL
+    struct epoll_event evz;
+    evz.data.u64 = CONTAINER(esi->m_id);
+    evz.events = EPOLLIN;
+    int fd=CONTAINER(esi->get_fd());
+    if(fd!=-1)
+    {
+        if (epoll_ctl(m_epoll.m_epollFd, EPOLL_CTL_MOD, fd, &evz) < 0)
+        {
+            logErr2("epoll_ctl add: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
+            if(!esi->closed())
+            {
+                esi->close("EPOLL_CTL_ADD");
+            }
+        }
+    }
+#endif
+#ifdef HAVE_KQUEUE
+
+    int fd=CONTAINER(esi->get_fd());
+    if(fd!=-1)
+    {
+        {
+            struct kevent ev;
+            EV_SET(&ev,fd,EVFILT_WRITE,EV_DELETE,0,0,(void*)(long)CONTAINER(esi->m_id));
+            addEvent(ev);
+        }
+    }
+    else throw CommonError("fd==-1");
+
+#endif
+
+    XPASS;
+
+}
+void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
+{
+#ifdef HAVE_EPOLL
+    {
+        struct epoll_event evtz {};
+        evtz.events=EPOLLIN|EPOLLOUT;
+        evtz.data.u64= static_cast<uint64_t>(CONTAINER(nesi->m_id));
+
+        if (epoll_ctl(m_socks->multiplexor->m_epoll.m_epollFd, EPOLL_CTL_ADD, CONTAINER(nesi->get_fd()), &evtz) < 0)
+        {
+            logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(nesi->get_fd()), errno);
+        }
+
+    }
+
+#endif
+    {
+        struct kevent ev;
+        EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
+        addEvent(ev);
+    }
+    {
+        struct kevent ev;
+        EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_READ,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
+        addEvent(ev);
+    }
+
+}
 void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
 {
 
@@ -55,11 +159,11 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
             EV_SET(&ev,fd,EVFILT_READ,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
             addEvent(ev);
         }
-        {
-            struct kevent ev;
-            EV_SET(&ev,fd,EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
-            addEvent(ev);
-        }
+//        {
+//            struct kevent ev;
+//            EV_SET(&ev,fd,EVFILT_WRITE,EV_ADD,0,0,(void*)(long)CONTAINER(esi->m_id));
+//            addEvent(ev);
+//        }
     }
     else throw CommonError("fd==-1");
 
@@ -87,9 +191,9 @@ std::vector<struct kevent> NetworkMultiplexor::extractEvents()
 {
 
     M_LOCK(this);
-    auto z=evSet;
+    auto z=std::move(evSet);
     evSet.clear();
-    evSet.reserve(1024);
+    evSet.reserve(64);
     return z;
 }
 int NetworkMultiplexor::getKqueue()

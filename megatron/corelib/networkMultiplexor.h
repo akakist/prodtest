@@ -49,6 +49,9 @@ public:
     ~NetworkMultiplexor();
 
     void sockAddReadOnNew(epoll_socket_info *esi);
+    void sockStartWrite(epoll_socket_info* esi);
+    void sockStopWrite(epoll_socket_info* esi);
+    void sockAddRWOnNew(epoll_socket_info* esi);
 
     int add_counter=0;
 
