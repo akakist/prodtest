@@ -135,11 +135,11 @@ void epoll_socket_info::close(const std::string & reason)
     }
     {
         XTRY;
-#ifdef _WIN32
-        shutdown(CONTAINER(get_fd()),SD_BOTH);
-#else
-        shutdown(CONTAINER(get_fd()),SHUT_RDWR);
-#endif
+//#ifdef _WIN32
+//        shutdown(CONTAINER(get_fd()),SD_BOTH);
+//#else
+//        shutdown(CONTAINER(get_fd()),SHUT_RDWR);
+//#endif
         XPASS;
     }
     XPASS;
@@ -159,10 +159,10 @@ void epoll_socket_info::close(const std::string & reason)
     }
 #ifdef HAVE_KQUEUE
                                 struct kevent ev1,ev2;
-                                EV_SET(&ev1,CONTAINER(get_fd()),EVFILT_READ,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
-                                EV_SET(&ev2,CONTAINER(get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
-                                multiplexor->addEvent(ev1);
-                                multiplexor->addEvent(ev2);
+//                                EV_SET(&ev1,CONTAINER(get_fd()),0,EV_DELETE,0,0,(void*)(long)CONTAINER(m_id));
+//                                EV_SET(&ev2,CONTAINER(get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
+//                                multiplexor->addEvent(ev1);
+//                                multiplexor->addEvent(ev2);
 #endif
 
 }
