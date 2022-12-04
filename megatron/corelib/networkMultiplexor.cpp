@@ -102,7 +102,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
 }
 void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
 {
-    logErr2("added sock to epoll %d %s",esi->get_fd(),__PRETTY_FUNCTION__);
+//    logErr2("added sock to epoll %d %s",esi->get_fd(),__PRETTY_FUNCTION__);
 #ifdef HAVE_EPOLL
     {
         struct epoll_event evtz {};
@@ -134,7 +134,7 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
 void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
 {
 
-    logErr2("added sock to epoll %d %s",esi->get_fd(),__PRETTY_FUNCTION__);
+//    logErr2("added sock to epoll %d %s",esi->get_fd(),__PRETTY_FUNCTION__);
 
     XTRY;
 #ifdef HAVE_EPOLL

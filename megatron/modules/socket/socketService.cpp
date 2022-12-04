@@ -178,7 +178,7 @@ void SocketIO::Service::onEPOLLIN_STREAMTYPE_LISTENING(const REF_getter<epoll_so
     nesi->local_name=local_name;
     nesi->remote_name=remote_name;
 
-    logErr2("@@ %s",__PRETTY_FUNCTION__);
+//    logErr2("@@ %s",__PRETTY_FUNCTION__);
     m_socks->multiplexor->sockAddReadOnNew(nesi.operator ->());
     m_socks->add(nesi);
 
@@ -1149,7 +1149,7 @@ bool  SocketIO::Service::on_AddToListenTCP(const socketEvent::AddToListenTCP*ev)
     passEvent(new socketEvent::NotifyBindAddress(nesi,ev->socketDescription,ev->rebind,r));
 
 
-    logErr2("@@ %s",__PRETTY_FUNCTION__);
+//    logErr2("@@ %s",__PRETTY_FUNCTION__);
 
     m_socks->multiplexor->sockAddReadOnNew(nesi.operator ->());
     m_socks->add(nesi);
