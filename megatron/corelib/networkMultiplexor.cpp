@@ -36,7 +36,7 @@ void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
     {
         if (epoll_ctl(m_epoll.m_epollFd, EPOLL_CTL_MOD, fd, &evz) < 0)
         {
-            logErr2("epoll_ctl add: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
+            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
             {
                 esi->close("EPOLL_CTL_ADD");
@@ -74,7 +74,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
     {
         if (epoll_ctl(m_epoll.m_epollFd, EPOLL_CTL_MOD, fd, &evz) < 0)
         {
-            logErr2("epoll_ctl add: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
+            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
             {
                 esi->close("EPOLL_CTL_ADD");
@@ -143,7 +143,7 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
     {
         if (epoll_ctl(m_epoll.m_epollFd, EPOLL_CTL_ADD, fd, &evz) < 0)
         {
-            logErr2("epoll_ctl add: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
+            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
             {
                 esi->close("EPOLL_CTL_ADD");
