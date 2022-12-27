@@ -85,8 +85,6 @@ public:
 
     std::string extractFileExt(const std::string&);
     std::string extractFileName(const std::string & f);
-    bool readable_fd(const REF_getter<epoll_socket_info>& esi,int sec, int usec);
-    bool writeable_fd(const REF_getter<epoll_socket_info>& esi, int timeout_sec, int timeout_usec);
 
 #ifdef __WITH_ZLIB
     REF_getter<refbuffer>  zcompress(const REF_getter<refbuffer>& data);

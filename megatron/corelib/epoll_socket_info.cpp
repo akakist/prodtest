@@ -3,6 +3,9 @@
 #endif
 #include "epoll_socket_info.h"
 #include "IInstance.h"
+#include "Events/System/Net/socket/Write.h"
+#include "Events/System/Net/socket/Close.h"
+#include "tools_mt.h"
 #ifdef __linux__
 #include <sys/epoll.h>
 #endif
@@ -22,7 +25,7 @@ Json::Value epoll_socket_info::__jdump()
     XTRY;
 
     v["id"]=(int)CONTAINER(m_id);
-    v["fd"]=CONTAINER(m_fd);
+//    v["fd"]=CONTAINER(m_fd);
     switch(m_streamType)
     {
     case STREAMTYPE_ACCEPTED:
@@ -38,18 +41,20 @@ Json::Value epoll_socket_info::__jdump()
         throw CommonError("invalid streamtype %s %d",__FILE__,__LINE__);
     }
     {
-        v["outBufferSize"]=(int)m_outBuffer.size();
+//        v["outBufferSize"]=(int)m_outBuffer.size();
         {
             M_LOCK(m_inBuffer);
             v["inBufferSize"]=(int)m_inBuffer._mx_data.size();
         }
     }
     v["in connection"]=inConnection;
-    v["peer name"]=remote_name.dump();
-    v["local name"]=local_name.dump();
+    if(remote_name.valid())
+        v["peer name"]=remote_name->addr.dump();
+    if(local_name.valid())
+    v["local name"]=local_name->addr.dump();
     v["dst route"]=m_route.dump();
     v["closed"]=closed();
-    v["outbuffer size"]=(int)m_outBuffer.size();
+//    v["outbuffer size"]=(int)m_outBuffer.size();
     v["inbuffer size"]=(int)m_inBuffer.size();
     v["socketDescription"]=socketDescription;
     XPASS;
@@ -62,243 +67,48 @@ Json::Value epoll_socket_info::wdump()
     return __jdump();
 }
 
-
 void epoll_socket_info::write_(const std::string&s)
 {
-    MUTEX_INSPECTOR;
-    XTRY;
-    if(!closed())
-    {
-        XTRY;
-        {
-            XTRY;
-            if(s.size()+m_outBuffer.size()>maxOutBufferSize)
-                throw CommonError("socket outBuffer size overflow %ld",maxOutBufferSize);
-            m_outBuffer.append(s.data(),s.size());
-            multiplexor->sockStartWrite(this);
-            //m_outBuffer.send(CONTAINER(m_fd),this);
-//#ifdef HAVE_KQUEUE
-//            {
-//                struct kevent ev2;
-//                EV_SET(&ev2,CONTAINER(m_fd),EVFILT_WRITE,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
-//                multiplexor->addEvent(ev2);
-//            }
-//#elif defined HAVE_EPOLL
-//            struct epoll_event evtz;
-//            evtz.events=EPOLLIN|EPOLLOUT;
-//            evtz.data.u64=CONTAINER(m_id);
+    iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(this,s));
 
-//            if (epoll_ctl(multiplexor->m_epoll.m_epollFd, EPOLL_CTL_MOD, CONTAINER(get_fd()), &evtz) < 0)
-//            {
-//                logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(get_fd()), errno);
-//            }
-
-//#endif
-            XPASS;
-        }
-        XPASS;
-    }
-    XPASS;
 }
-void epoll_socket_info::write_(const char *s, const size_t &sz)
-{
-    MUTEX_INSPECTOR;
-    XTRY;
-    write_(std::string(s,sz));
-
-    XPASS;
-}
-
 void epoll_socket_info::close(const std::string & reason)
 {
     MUTEX_INSPECTOR;
-
-    DBG(logErr2("epoll_socket_info::close %s",reason.c_str()));
-    XTRY;
-    std::string sType;
-    if(CONTAINER(get_fd())==-1)
-    {
-        return;
-    }
-
-    if(this->m_streamType==epoll_socket_info::STREAMTYPE_ACCEPTED)
-    {
-        sType="_ACCEPTED";
-    }
-    else if(this->m_streamType==epoll_socket_info::STREAMTYPE_CONNECTED)
-    {
-        sType="_CONNECTED";
-    }
-    else if(this->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
-    {
-        sType="_LISTENING";
-    }
-    DBG(logErr2("close reason: %s remote name %s type %s fd %d",reason.c_str(),remote_name.dump().c_str(),sType.c_str(),CONTAINER(get_fd())));
-    if(closed())
-    {
-        DBG(logErr2("socket already closed %s",_DMI().c_str()));
-        return;
-    }
-    {
-        XTRY;
-//#ifdef _WIN32
-//        shutdown(CONTAINER(get_fd()),SD_BOTH);
-//#else
-//        shutdown(CONTAINER(get_fd()),SHUT_RDWR);
-//#endif
-        XPASS;
-    }
-    XPASS;
-
-    if(CONTAINER(get_fd())!=-1)
-    {
-#ifdef _WIN32
-        if(!::closesocket(CONTAINER(m_fd)))
-#else
-        if(!::close(CONTAINER(m_fd)))
-#endif
-        {
-        }
-        CONTAINER(m_id)=-1;
-        CONTAINER(m_fd)=-1;
-
-    }
-#ifdef HAVE_KQUEUE
-//                                struct kevent ev1,ev2;
-//                                EV_SET(&ev1,CONTAINER(get_fd()),0,EV_DELETE,0,0,(void*)(long)CONTAINER(m_id));
-//                                EV_SET(&ev2,CONTAINER(get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(m_id));
-//                                multiplexor->addEvent(ev1);
-//                                multiplexor->addEvent(ev2);
-#endif
-
+    iInstance->sendEvent(ServiceEnum::Socket,new socketEvent::Close(this,route_t()));
 }
 
 epoll_socket_info::~epoll_socket_info()
 {
-    try {
-        if(CONTAINER(m_fd)!=-1)
-        {
-            logErr2("@@ %s on nonclosed sock",__PRETTY_FUNCTION__);
-#ifdef _WIN32
-            if(!::closesocket(CONTAINER(m_fd)))
-#else
-            if(!::close(CONTAINER(m_fd)))
-#endif
-            {
-                printf(RED("::closeB %d %s"),errno,strerror(errno));
-            }
-            CONTAINER(m_id)=-1;
-            CONTAINER(m_fd)=-1;
-        }
-
-
-    } catch(...) {}
-}
-
-
-
-
-
-//socketBufferOut::~socketBufferOut()
-//{
-//    if(buffer)
-//    {
-//        free(buffer);
-//        buffer=NULL;
-//    }
-//}
-//socketBufferOut::socketBufferOut(const char* data, size_t sz)
-//{
-//    buffer=(char*) malloc(sz);
-//    if(!buffer) throw CommonError("malloc: errno %d",errno);
-//    memcpy(buffer,data,sz);
-//    size=sz;
-//    curpos=0;
-//}
-//int socketBufferOut::sendSocket(const SOCKET_fd &fd)
-//{
-//    M_LOCK(this);
-
-//    int res=::send(CONTAINER(fd),buffer+curpos,size-curpos,0);
-//    if(res>0) curpos+=res;
-//    if(curpos==size)
-//    {
-//        free(buffer);
-//        buffer=NULL;
-//        curpos=0;
-//        size=0;
-//    }
-//    return res;
-//}
-
-void socketBuffersOut::append(const char* data, size_t sz)
-{
-    MUTEX_INSPECTOR;
-    M_LOCK(this);
-    container+=std::string(data,sz);
-}
-size_t socketBuffersOut::size()
-{
-    MUTEX_INSPECTOR;
-    M_LOCK(this);
-    return container.size();
-}
-int socketBuffersOut::send(const SOCKET_fd &fd, epoll_socket_info* esi)
-{
-    MUTEX_INSPECTOR;
-    int res=0;
-    int restSize=0;
-    {
-        M_LOCK(this);
-        res=::send(CONTAINER(fd),container.data(),container.size(),0);
-        if(res>0)
-        {
-            if(res==container.size())
-            {
-                container.clear();
-            }
-            else
-            {
-                container=container.substr(res,container.size()-res);
-            }
-            restSize=container.size();
-        }
-    }
-    if(restSize==0)
-        esi->multiplexor->sockStopWrite(esi);
-    return res;
 }
 
 bool epoll_socket_info::closed()
 {
-    return CONTAINER(m_fd)==-1;
+    return _closed;
 }
 
-epoll_socket_info::epoll_socket_info(const int &_socketType, const STREAMTYPE &_streamtype, const SOCKET_id& _id, const SOCKET_fd& _fd,
-                                     const route_t& _route,
-                                     const int64_t& _maxOutBufferSize, const char *_socketDescription, bool (*__bufferVerify)(const std::string&), const REF_getter<NetworkMultiplexor> &_multiplexor):
+epoll_socket_info::epoll_socket_info(IInstance* ins, const int &_socketType, const STREAMTYPE &_streamtype, const SOCKET_id& _id,  uv_tcp_t *_fd,
+                                     const route_t& _route, const char *_socketDescription, bool (*__bufferVerify)(const std::string&)):
+    iInstance(ins),
     m_socketType(_socketType),
     m_streamType(_streamtype),
     m_id(_id),
-    m_fd(_fd),
+    m_stream(_fd),
     m_route(_route),
     markedToDestroyOnSend(false),
     inConnection(false),
-    maxOutBufferSize(_maxOutBufferSize),
+    remote_name(NULL),
+    local_name(NULL),
+    request_for_connect(NULL),
     socketDescription(_socketDescription),
     bufferVerify(__bufferVerify),
-    multiplexor(_multiplexor)
+    _closed(false)
 {
 }
 
 void epoll_socket_info::_inBuffer::append(const char* data, size_t size)
 {
     M_LOCK(this);
-//    if(_mx_data.capacity()<_mx_data.size()+10000)
-//    {
-//        _mx_data.reserve(100000+_mx_data.size());
-//    }
-
     _mx_data.append(data,size);
 }
 size_t epoll_socket_info::_inBuffer::size()

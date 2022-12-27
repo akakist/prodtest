@@ -14,14 +14,11 @@ struct e_poll
 {
     e_poll()
         :
-        m_epollFd(-1),size(10),timeout_millisec(1)
+        m_epollFd(-1)
     {
     }
     int m_epollFd;
 
-    // conf vars
-    int size;
-    int timeout_millisec;
 };
 #endif
 

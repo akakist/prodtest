@@ -94,8 +94,9 @@ bool HTTP::Service::on_Connected(const socketEvent::Connected*)
 bool HTTP::Service::on_NotifyBindAddress(const socketEvent::NotifyBindAddress*e)
 {
     MUTEX_INSPECTOR;
+
     M_LOCK(mx);
-    mx.bind_addrs.insert(e->esi->local_name);
+    mx.bind_addrs.insert(e->addr);
     return true;
 }
 
@@ -581,7 +582,7 @@ bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEm
                 return true;
             }
 
-            e->esi->write_((char*)buf.buf,res);
+            e->esi->write_(std::string((char*)buf.buf,res));
             F->written_bytes+=res;
             return true;
         }

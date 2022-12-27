@@ -5,7 +5,7 @@
 #ifdef _MSC_VER
 #include <time.h>
 #endif
-#include <atomic>
+
 /// base class and template of smart pointer with refcount, which can catch pointer many times.
 ///
 #define PRIVATEMUTEX
@@ -18,9 +18,9 @@ class Refcountable
 
 public:
 #ifdef PRIVATEMUTEX
-//    Mutex __privateMuteX;
+    Mutex __privateMuteX;
 #endif
-    std::atomic<int> __Ref_Count;
+    int __Ref_Count;
     Refcountable (): __Ref_Count(0) { }
 
     int get_ref_count () const
@@ -47,12 +47,9 @@ public:
         if (___ptr)
         {
 #ifdef PRIVATEMUTEX
-//            M_LOCK (___ptr->__privateMuteX);
+            M_LOCK (___ptr->__privateMuteX);
 #endif
-//            std::atomic_fe_ ___ptr->__Ref_Count.++;
-            std::atomic_fetch_add(&___ptr->__Ref_Count,1);
-
-
+            ___ptr->__Ref_Count++;
         }
     }
     void decrefcount ()
@@ -62,14 +59,12 @@ public:
             if (___ptr)
             {
 #ifdef PRIVATEMUTEX
-//                M_LOCK (___ptr->__privateMuteX);
+                M_LOCK (___ptr->__privateMuteX);
 #endif
-//                int refc=std::atomic_load(___ptr->__Ref_Count);
-                auto prev=std::atomic_fetch_sub(&___ptr->__Ref_Count,1);
-                if (prev==1)
+                if (___ptr->__Ref_Count == 1)
                     need_destroy = true;
-//                if (___ptr->__Ref_Count > 0)
-//                    ___ptr->__Ref_Count--;
+                if (___ptr->__Ref_Count > 0)
+                    ___ptr->__Ref_Count--;
             }
             if (need_destroy)
             {
@@ -132,5 +127,108 @@ public:
     };
 };
 
+template < class T1,class T2 > class REF_getter2
+{
+
+public:
+    T1 * ___ptr;
+    void increfcount () const
+    {
+        if (___ptr)
+        {
+#ifdef PRIVATEMUTEX
+            M_LOCK (___ptr->__privateMuteX);
+#endif
+            ___ptr->__Ref_Count++;
+        }
+    }
+    void decrefcount ()
+    {
+        bool need_destroy = false;
+        {
+            if (___ptr)
+            {
+#ifdef PRIVATEMUTEX
+                M_LOCK (___ptr->__privateMuteX);
+#endif
+                if (___ptr->__Ref_Count == 1)
+                    need_destroy = true;
+                if (___ptr->__Ref_Count > 0)
+                    ___ptr->__Ref_Count--;
+            }
+            if (need_destroy)
+            {
+                delete ___ptr;
+                ___ptr = NULL;
+            }
+        }
+    }
+
+    bool operator < (const REF_getter2 & l) const
+    {
+        return ___ptr < l.___ptr;
+    }
+    bool valid() const
+    {
+        return ___ptr!=NULL;
+    }
+    REF_getter2 ():___ptr (NULL)
+    {
+        increfcount ();
+    }
+    REF_getter2 (const T1 * p):___ptr ((T1 *) p)
+    {
+        increfcount ();
+    }
+
+    REF_getter2 (const REF_getter2 < T1,T2 > &bcg):___ptr (bcg.___ptr)
+    {
+        increfcount ();
+    }
+
+    ~REF_getter2 ()
+    {
+        decrefcount ();
+    }
+    bool operator== (const REF_getter2 & bcg) const
+    {
+        return ___ptr == bcg.___ptr;
+    }
+    operator T2* () const
+    {
+        return ___ptr->obj();
+    }
+    void clear()
+    {
+        decrefcount ();
+        ___ptr=NULL;
+    }
+#ifndef _MSC_VER
+    REF_getter2 & operator = (const REF_getter2 & bcg) const
+    {
+        if (this != &bcg)
+        {
+            bcg.increfcount ();
+            decrefcount ();
+            ___ptr = bcg.___ptr;
+        }
+        return *this;
+    }
+#endif
+    REF_getter2 & operator = (const REF_getter2 & bcg)
+    {
+        if (this != &bcg)
+        {
+            bcg.increfcount ();
+            decrefcount ();
+            ___ptr = bcg.___ptr;
+        }
+        return *this;
+    }
+    inline  T2* operator -> () const
+    {
+        return ___ptr->obj();
+    };
+};
 
 #endif

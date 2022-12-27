@@ -69,6 +69,9 @@ private:
     };
     __services services;
 
+    Mutex mx_globalCookie;
+    GlobalCookie_id m_globalCookie;
+    GlobalCookie_id globalCookie();
 
 
 public:

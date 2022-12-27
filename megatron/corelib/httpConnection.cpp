@@ -9,6 +9,7 @@
 #endif
 #include <string>
 #include "httpConnection.h"
+#include "Events/System/Net/socket/Write.h"
 
 
 std::string HTTP::get_name_of_http_code(int code)
@@ -231,8 +232,8 @@ HTTP::Request::Request()
 //  , isPersistent(false)
 {
 }
-HTTP::Response::Response()
-    :http_code(200),http_content_type("text/html"),allow_build_response(true)
+HTTP::Response::Response(IInstance* _ins)
+    :http_code(200),http_content_type("text/html"),allow_build_response(true),iInstance(_ins)
 {
 }
 
@@ -241,12 +242,13 @@ void HTTP::Response::makeResponse(const REF_getter<epoll_socket_info>& esi)
 {
     std::string out = build_html_response();
     esi->markedToDestroyOnSend=true;
-    esi->write_(out);
+    iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,out));
+
 }
 void HTTP::Response::makeResponsePersistent(const REF_getter<epoll_socket_info> &esi)
 {
     std::string out = build_html_response_wo_content_length();
-    esi->write_(out);
+    iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,out));
 }
 
 bool HTTP::Request::__gets$(std::string& dst,const std::string& delim, std::string& data)

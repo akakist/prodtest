@@ -32,10 +32,11 @@ void registerErrorDispatcherService(const char*);
 
 void registerObjectProxyModule(const char*);
 void registerOscarModule(const char*);
+void registerOscarSecureModule(const char*);
 void registerRPCService(const char*);
 void registerSocketModule(const char*);
 void registerTimerService(const char*);
-//void registerReferrerClientService(const char* pn);
+void registerReferrerClientService(const char* pn);
 static void registerModules()
 {
     logErr2("static void registerModules()");
@@ -45,15 +46,18 @@ static void registerModules()
         registerHTTPModule(pn);
         registerTelnetService(pn);
         registerWebHandlerModule(pn);
-//        registerErrorDispatcherService(pn);
+        registerErrorDispatcherService(pn);
 #endif
         registerObjectProxyModule(pn);
         registerOscarModule(pn);
+        registerOscarSecureModule(pn);
         registerRPCService(pn);
         registerSocketModule(pn);
         registerTimerService(pn);
-//        registerReferrerClientService(pn);
+        registerReferrerClientService(pn);
     }
+    void registerSSL(const char* pn);
+    registerSSL(pn);
 }
 
 IUtils *Megatron::initMegatron(int argc, char** argv, const std::string &filesDir)

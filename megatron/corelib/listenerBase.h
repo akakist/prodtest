@@ -2,7 +2,7 @@
 #define ______LISTENER____H
 #include "unknownCastDef.h"
 #include "unknown.h"
-#include "event.h"
+#include "event_mt.h"
 
 typedef bool (*eventhandler) (const REF_getter<Event::Base> &, void*);
 

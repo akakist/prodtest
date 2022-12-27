@@ -3,7 +3,7 @@
 #include "___dfsCapsEvent.h"
 #include <set>
 #include "msockaddr_in.h"
-#include "event.h"
+#include "event_mt.h"
 namespace dfsCapsEvent {
     class RegisterMyRefferrerNodeREQ: public Event::Base
     {

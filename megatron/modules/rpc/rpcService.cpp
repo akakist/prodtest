@@ -3,7 +3,7 @@
 #include "rpcService.h"
 
 #include "version_mega.h"
-#include "event.h"
+#include "event_mt.h"
 #include <Events/System/Net/rpc/Connected.h>
 #include "Events/System/Net/rpc/IncomingOnAcceptor.h"
 #include "Events/System/Net/rpc/IncomingOnConnector.h"
@@ -89,13 +89,13 @@ bool RPC::Service::on_Connected(const oscarEvent::Connected* E)
     bool need_send_connected=false;
     msockaddr_in sa;
     socklen_t sl=sa.maxAddrLen();
-    if(getsockname(CONTAINER(E->esi->get_fd()), sa.addr(),&sl))
-    {
-        logErr2("getsockname: errno %d %s",errno,strerror(errno));
-    }
-    else
-    {
-    }
+//    if(getsockname(CONTAINER(E->esi->get_fd()), sa.addr(),&sl))
+//    {
+//        logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//    }
+//    else
+//    {
+//    }
     std::set<route_t> subscribers;
     {
 //        M_LOCK(sessions->m_lock);
@@ -367,11 +367,11 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
         }
         socklen_t len=addr.addrLen();
 
-        if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
-        {
-            logErr2("getsockname: errno %d %s",errno,strerror(errno));
-            return true;
-        }
+//        if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
+//        {
+//            logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//            return true;
+//        }
 //        DBG(logErr2("--------GETSOCKNAME m_bindAddr_reserve retursn %s",addr.dump().c_str()));
 
 
@@ -386,22 +386,22 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
 
     for(auto &i:m_bindAddr_main)
     {
-        const msockaddr_in &addr=i;
-        if(e->socketDescription=="RPC_UL")
+//        const msockaddr_in &addr=i;
+        if((std::string)e->socketDescription=="RPC_UL")
         {
             if(e->rebind)
             {
                 sessions->clear();
             }
-            socklen_t len=addr.maxAddrLen();
+//            socklen_t len=addr.maxAddrLen();
 
-            if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
-            {
-                logErr2("getsockname: errno %d %s",errno,strerror(errno));
-                return true;
-            }
+//            if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
+//            {
+//                logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//                return true;
+//            }
 
-            DBG(logErr2("--------GETSOCKNAME m_bindAddr_main retursn %s",addr.dump().c_str()));
+//            DBG(logErr2("--------GETSOCKNAME m_bindAddr_main retursn %s",addr->.dump().c_str()));
 
 
             DBG(logErr2("---------------e->sockType %s",e->socketDescription));
@@ -463,12 +463,12 @@ bool RPC::Service::on_Accepted(const oscarEvent::Accepted* E)
 
     msockaddr_in sa;
     socklen_t sl=sa.maxAddrLen();
-    if(getsockname(CONTAINER(E->esi->get_fd()), sa.addr(),&sl))
-    {
-        logErr2("getsockname: errno %d %s",errno,strerror(errno));
-    }
+//    if(getsockname(CONTAINER(E->esi->get_fd()), sa.addr(),&sl))
+//    {
+//        logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//    }
 
-    DBG(logErr2("accepted socket %d",CONTAINER(E->esi->get_fd())));
+//    DBG(logErr2("accepted socket %d",CONTAINER(E->esi->get_fd())));
     std::set<route_t> subscribers;
     {
         const oscarEvent::Accepted *e=E;
@@ -747,7 +747,7 @@ bool RPC::Service::on_TickAlarm(const timerEvent::TickAlarm*e)
             {
                 if(now-S->last_time_hit>m_connectionActivityTimeout)
                 {
-                    DBG(logErr2("close socket S->esi-> %s",esi->remote_name.dump().c_str()));
+                    DBG(logErr2("close socket S->esi-> %s",esi->remote_name->addr.dump().c_str()));
                     esi->close("rpc close due timer inactivity");
                 }
             }
@@ -850,7 +850,7 @@ bool RPC::Service::on_ConnectFailed(const oscarEvent::ConnectFailed*e)
         subscribers=sessions->all.m_subscribers;
     }
     sessions->all.m_socketId2session.erase(e->esi->m_id);
-    sessions->connector.m_sa2socketId.erase(e->esi->remote_name);
+    sessions->connector.m_sa2socketId.erase(e->esi->remote_name->addr);
     sessions->connector.m_socketId2sa.erase(e->esi->m_id);
 
     for(auto &i:subscribers)
@@ -1041,7 +1041,7 @@ bool RPC::Service::on_RequestIncoming(const webHandlerEvent::RequestIncoming* e)
 {
 
     MUTEX_INSPECTOR;
-    HTTP::Response cc;
+    HTTP::Response cc(iInstance);
     cc.content+="<h1>RPC report</h1><p>";
 
     Json::Value v=jdump();

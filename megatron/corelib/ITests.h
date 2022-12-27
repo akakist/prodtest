@@ -4,12 +4,12 @@
 
 namespace ITests
 {
-class Base
-{
-public:
-    virtual int run()=0;
-    virtual std::string getName()=0;
-    virtual ~Base() {}
-};
+    class Base
+    {
+    public:
+        virtual int run()=0;
+        virtual std::string getName()=0;
+        virtual ~Base() {}
+    };
 }
 #endif

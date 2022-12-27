@@ -21,7 +21,7 @@
 
 #include "Events/System/Net/rpc/IncomingOnAcceptor.h"
 #include "Events/System/Net/rpc/IncomingOnConnector.h"
-#include "Ping.h"
+#include "../Event/Ping.h"
 
 #include "version_mega.h"
 

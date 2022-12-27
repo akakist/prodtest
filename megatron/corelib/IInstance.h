@@ -1,7 +1,7 @@
 #ifndef _____________IFACTORY_____H
 #define _____________IFACTORY_____H
 #include <string>
-#include "event.h"
+#include "event_mt.h"
 #include "SERVICE_id.h"
 #include "unknown.h"
 #include "IUtils.h"
@@ -58,6 +58,8 @@ public:
     virtual ~IInstance() {}
 
 
+    /// global cookie - random ID identifying node in DFS cloud
+    virtual GlobalCookie_id globalCookie()=0;
 
     /// my visible IP adresses, obtained with cloud uplink
     virtual std::set<msockaddr_in> myExternalAddressesGet()=0;

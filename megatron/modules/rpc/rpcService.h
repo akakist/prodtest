@@ -4,7 +4,7 @@
 #include <webDumpable.h>
 #include <SOCKET_id.h>
 
-#include "event.h"
+#include "event_mt.h"
 #include <epoll_socket_info.h>
 #include <json/value.h>
 #include <broadcaster.h>
@@ -48,7 +48,10 @@ enum
 };
 }
 
-struct Session: public Refcountable, public Mutexable,WebDumpable
+struct Session:
+        public Refcountable,
+        public Mutexable,
+        public WebDumpable
 {
 
     SOCKET_id socketId;
@@ -109,7 +112,10 @@ struct Session: public Refcountable, public Mutexable,WebDumpable
     }
 
 };
-struct __sessions: public Refcountable,Broadcaster, WebDumpable
+struct __sessions:
+        public Refcountable,
+        public Broadcaster,
+        public WebDumpable
 {
 
     bool getAddrOnConnected(const SOCKET_id& id, msockaddr_in &out);
