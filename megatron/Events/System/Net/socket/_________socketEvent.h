@@ -27,6 +27,7 @@ namespace socketEventEnum
     const EVENT_id UdpAssoc("socket.UdpAssoc");
     const EVENT_id UdpAssocRSP("socket.UdpAssocRSP");
     const EVENT_id UdpPacketIncoming("socket.UdpPacketIncoming");
+    const EVENT_id Close("socket.Close");
 }
 
 

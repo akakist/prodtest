@@ -1,4 +1,6 @@
+#include <ISSL.h>
 #include "CInstance.h"
+
 #include "objectHandler.h"
 #include "url.h"
 
@@ -123,7 +125,7 @@ void CInstance::sendEvent(const std::string& dstHost, const SERVICE_id& dstServi
 }
 void CInstance::sendEvent(const msockaddr_in& addr, const SERVICE_id& svs,  const REF_getter<Event::Base>&e)
 {
-    if(m_terminating)return;
+//    if(m_terminating)return;
     XTRY;
     forwardEvent(ServiceEnum::RPC,new rpcEvent::SendPacket(addr,svs,e));
     XPASS;
@@ -131,13 +133,14 @@ void CInstance::sendEvent(const msockaddr_in& addr, const SERVICE_id& svs,  cons
 
 void CInstance::sendEvent(ListenerBase *l,  const REF_getter<Event::Base>&e)
 {
-    if(m_terminating)return;
+//    if(m_terminating)return;
+    e->route.push_front(new LocalServiceRoute(l->serviceId));
     l->listenToEvent(e);
 }
 UnknownBase* CInstance::getServiceNoCreate(const SERVICE_id& svs)
 {
-    if(m_terminating)return nullptr;
-    M_LOCK(services);
+//    if(m_terminating)return nullptr;
+    RLocker lk(services.m_lock);
     auto i=services.container.find(svs);
     UnknownBase* u=NULL;
     if(i==services.container.end())
@@ -153,14 +156,13 @@ UnknownBase* CInstance::getServiceNoCreate(const SERVICE_id& svs)
 
 UnknownBase* CInstance::getServiceOrCreate(const SERVICE_id& svs)
 {
-
     if(m_terminating)return nullptr;
 
     XTRY;
     UnknownBase* u=nullptr;
     {
         XTRY;
-        M_LOCK(services);
+        RLocker lk(services.m_lock);
         auto i=services.container.find(svs);
         if(i==services.container.end())
         {
@@ -172,13 +174,11 @@ UnknownBase* CInstance::getServiceOrCreate(const SERVICE_id& svs)
         }
         XPASS;
     }
-
     XTRY;
     if(!u)
     {
         u=initService(svs);
     }
-
     XPASS;
     XTRY;
     if(u)
@@ -188,7 +188,6 @@ UnknownBase* CInstance::getServiceOrCreate(const SERVICE_id& svs)
     XPASS;
     XPASS;
     throw CommonError("cannot find service %s",svs.dump().c_str());
-
 
 }
 
@@ -202,7 +201,7 @@ void CInstance::forwardEvent(const SERVICE_id& svs,  const REF_getter<Event::Bas
         UnknownBase*u=nullptr;
         {
             XTRY;
-            M_LOCK(services);
+            RLocker lk(services.m_lock);
             auto i=services.container.find(svs);
             if(i==services.container.end())
             {
@@ -250,7 +249,6 @@ void CInstance::forwardEvent(const SERVICE_id& svs,  const REF_getter<Event::Bas
 
 UnknownBase* CInstance::initService(const SERVICE_id& sid)
 {
-
     MUTEX_INSPECTOR;
     if(m_terminating)return NULL;
     Utils_local * locals = m_utils->getLocals();
@@ -277,7 +275,6 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
         if(i!=services.container.end())
             return i->second;
     }
-
     {
         MUTEX_INSPECTOR;
         M_LOCK(locals->service_constructors);
@@ -290,7 +287,6 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
             constr=i->second;
         }
     }
-
     if(constr==0)
     {
         MUTEX_INSPECTOR;
@@ -339,19 +335,21 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
     }
 
     {
-        MUTEX_INSPECTOR;
-        M_LOCK(services);
-        auto iii=services.container.find(sid);
-        if(iii!=services.container.end())
         {
-            return iii->second;
+            MUTEX_INSPECTOR;
+            RLocker lk(services.m_lock);
+            auto iii=services.container.find(sid);
+            if(iii!=services.container.end())
+            {
+                return iii->second;
+            }
         }
-        else
+//        else
         {
             MUTEX_INSPECTOR;
             {
                 MUTEX_INSPECTOR;
-                M_UNLOCK(services);
+//                M_UNLOCK(services);
                 std::string name;
                 {
                     MUTEX_INSPECTOR;
@@ -376,13 +374,12 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
                     XPASS;
                 }
             }
-
             {
+                WLocker lk(services.m_lock);
                 services.container.insert(std::make_pair(sid,u));
             }
         }
     }
-
     try {
         auto l=dynamic_cast<ListenerBase*>(u);
         if(!l)
@@ -447,7 +444,7 @@ void CInstance::deinitServices()
     {
         MUTEX_INSPECTOR;
         {
-            M_LOCK(services);
+            WLocker lk(services.m_lock);
             svs=services.container;
             services.container.clear();
         }
@@ -460,7 +457,7 @@ void CInstance::deinitServices()
             auto u=i->second;
             MUTEX_INSPECTORS(u->classname);
             name=u->classname;
-            DBG(printf(BLUE("deleting service %s %s"),u->classname.c_str(),_DMI().c_str()));
+            printf(BLUE("deleting service %s %s"),u->classname.c_str(),_DMI().c_str());
             u->deinit();
             try {
                 delete u;
@@ -479,3 +476,14 @@ void CInstance::deinitServices()
 
 
 
+GlobalCookie_id CInstance::globalCookie()
+{
+    M_LOCK(mx_globalCookie);
+    if(CONTAINER(m_globalCookie).size()==0)
+    {
+        I_ssl *ssl=(I_ssl*)iUtils->queryIface(Ifaces::SSL);
+        CONTAINER(m_globalCookie)=ssl->rand_bytes(8);
+
+    }
+    return m_globalCookie;
+}

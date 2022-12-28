@@ -1,6 +1,8 @@
 #ifndef ______OSCAR_EVENT___Hb
 #define ______OSCAR_EVENT___Hb
 #include "___oscarEvent.h"
+#include "event_mt.h"
+#include "epoll_socket_info.h"
 namespace oscarEvent
 {
 
@@ -12,12 +14,12 @@ namespace oscarEvent
         {
             return NULL;
         }
-        SendPacket(const SOCKET_id& _sock, const REF_getter<refbuffer> &_buf, const route_t& r)
+        SendPacket(const REF_getter<epoll_socket_info>& _esi, const REF_getter<refbuffer> &_buf, const route_t& r)
             :NoPacked(oscarEventEnum::SendPacket,r),
-             socketId(_sock), buf(_buf) {}
+             esi(_esi), buf(_buf) {}
 
         /// сокет
-        const SOCKET_id socketId;
+        REF_getter<epoll_socket_info> esi;
 
         /// buffer
         const REF_getter<refbuffer> buf;

@@ -1,7 +1,7 @@
 #ifndef ______________________EVENT_DEQUE_____H
 #define ______________________EVENT_DEQUE_____H
 #include <deque>
-#include "event.h"
+#include "event_mt.h"
 #include "mutexable.h"
 #include <json/json.h>
 #include "IInstance.h"

@@ -620,7 +620,7 @@ long CUtils::load_file_from_disk(std::string & res, const std::string & fn)
 #endif
 
     {
-        logErr2("stat: errno %s %d",fn.c_str(),errno);
+        logErr2("stat: errno %d",errno);
         return -1;
     }
     st_FILE f(fn, "rb");
@@ -993,57 +993,6 @@ int CUtils::checkPath(const std::string & _pathname)
         }
     }
     return 0;
-}
-bool CUtils::writeable_fd(const REF_getter<epoll_socket_info>& esi, int timeout_sec, int timeout_usec)
-{
-    int iii;
-    {
-
-        if(esi->closed())return false;
-        fd_set  wrfs;
-        FD_ZERO(&wrfs);
-        FD_SET(CONTAINER(esi->get_fd()), &wrfs);
-        struct timeval tv;
-        tv.tv_sec = timeout_sec;
-        tv.tv_usec = timeout_usec;
-
-        iii = select(CONTAINER(esi->get_fd()) + 1, NULL, &wrfs, NULL, &tv);
-        if(iii!=-1 && CONTAINER(esi->get_fd())!=-1)
-            return FD_ISSET(CONTAINER(esi->get_fd()), &wrfs);
-    }
-    if (iii == -1) {
-        esi->close("select writeable");
-        return false;
-    }
-    return false;
-
-
-}
-
-bool CUtils::readable_fd(const REF_getter<epoll_socket_info>& esi,int sec, int usec)
-{
-
-    int iii;
-    {
-        MUTEX_INSPECTORS("select");
-        if(esi->closed())return false;
-        fd_set rdfs;    /*for select */
-        FD_ZERO(&rdfs);
-        FD_SET(CONTAINER(esi->get_fd()), &rdfs);
-        struct timeval tv;
-        tv.tv_sec = sec;
-        tv.tv_usec = usec;
-
-        iii = select(CONTAINER(esi->get_fd()) + 1, &rdfs, NULL, NULL, &tv);
-        if(iii!=-1 && CONTAINER(esi->get_fd())!=-1)
-            return FD_ISSET(CONTAINER(esi->get_fd()), &rdfs);
-    }
-    if (iii == -1) {
-        esi->close("select readable");
-        return false;
-    }
-    return false;
-
 }
 std::string CUtils::findExecutable(const std::string& _fn)
 {

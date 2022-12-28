@@ -94,8 +94,9 @@ bool HTTP::Service::on_Connected(const socketEvent::Connected*)
 bool HTTP::Service::on_NotifyBindAddress(const socketEvent::NotifyBindAddress*e)
 {
     MUTEX_INSPECTOR;
+
     M_LOCK(mx);
-    mx.bind_addrs.insert(e->esi->local_name);
+    mx.bind_addrs.insert(e->addr);
     return true;
 }
 
@@ -475,7 +476,7 @@ void HTTP::__http_stuff::on_delete(const REF_getter<epoll_socket_info>&esi, cons
 {
     MUTEX_INSPECTOR;
 
-    M_LOCK(m_lock);
+//    M_LOCK(m_lock);
     auto i=container.find(esi->m_id);
     if (i==container.end())
     {
@@ -489,7 +490,7 @@ REF_getter<HTTP::Request> HTTP::__http_stuff::getRequestOrNull(const SOCKET_id& 
 {
     MUTEX_INSPECTOR;
 
-    M_LOCK(m_lock);
+//    M_LOCK(m_lock);
     auto i=container.find(id);
     if (i!=container.end()) return i->second;
     return NULL;
@@ -499,7 +500,7 @@ void HTTP::__http_stuff::insert(const SOCKET_id& id,const REF_getter<HTTP::Reque
     MUTEX_INSPECTOR;
 
     {
-        M_LOCK(m_lock);
+//        M_LOCK(m_lock);
         container.insert(std::make_pair(id,C));
     }
 
@@ -581,7 +582,7 @@ bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEm
                 return true;
             }
 
-            e->esi->write_((char*)buf.buf,res);
+            e->esi->write_(std::string((char*)buf.buf,res));
             F->written_bytes+=res;
             return true;
         }

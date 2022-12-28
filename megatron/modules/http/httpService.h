@@ -28,24 +28,20 @@ namespace HTTP
 {
 
 class __http_stuff : public Refcountable
-/*: public SocketsContainerBase*/
 {
-    Mutex m_lock;
+//    Mutex m_lock;
     std::map<SOCKET_id,REF_getter<HTTP::Request> > container;
 public:
     __http_stuff()
-//            :SocketsContainerBase("__http_stuff")
     {}
     REF_getter<HTTP::Request> getRequestOrNull(const SOCKET_id& id);
     void insert(const SOCKET_id& id,const REF_getter<HTTP::Request> &C);
     virtual ~__http_stuff() {}
     void on_delete(const REF_getter<epoll_socket_info>&esi, const std::string& reason);
-//        void on_mod_write(const REF_getter<epoll_socket_info>&) {}
     void clear()
     {
-//            SocketsContainerBase::clear();
         {
-            M_LOCK(m_lock);
+//            M_LOCK(m_lock);
             container.clear();
         }
     }

@@ -39,8 +39,11 @@
 #include "Events/System/Net/socket/Disconnected.h"
 #include "events_socket.hpp"
 #include "colorOutput.h"
-
-
+#include <uv.h>
+#ifdef HAVE_EPOLL
+#include <sys/epoll.h>
+#endif
+#include <assert.h>
 
 SocketIO::Service::~Service()
 {
@@ -52,35 +55,14 @@ SocketIO::Service::~Service()
     }
 
 
-    m_socks->clear();
 }
 
 SocketIO::Service::Service(const SERVICE_id& id, const std::string& nm, IInstance* ifa):
     UnknownBase(nm),Broadcaster(ifa),
-    ListenerBuffered1Thread(this,nm,ifa->getConfig(),id,ifa),
-    m_total_recv(0L),
-    m_total_send(0L),
-    m_total_accepted(0L),
-
-    m_socks(new SocketsContainerForSocketIO),m_listen_backlog(128),
-    maxOutBufferSize(ifa->getConfig()->get_int64_t("maxOutBufferSize",8*1024*1024,"")),
+    ListenerSimple(nm,ifa->getConfig(),id),
     iInstance(ifa),m_isTerminating(false)
 {
     try {
-#ifdef HAVE_EPOLL
-        epoll_timeout_millisec= static_cast<int>(ifa->getConfig()->get_int64_t("timeout_millisec",
-                                10, ""));
-        epoll_size= static_cast<int>(ifa->getConfig()->get_int64_t("size", 1024, ""));
-
-        m_socks->multiplexor->m_epoll.m_epollFd=epoll_create(epoll_size);
-        if (m_socks->multiplexor->m_epoll.m_epollFd<0) throw CommonError("epoll_create: errno %d",errno);
-#endif
-#ifdef HAVE_KQUEUE
-        epoll_timeout_millisec=ifa->getConfig()->get_int64_t("epoll_timeout_millisec",10,"");
-        epoll_size=ifa->getConfig()->get_int64_t("epoll_size",1024,"");
-
-#endif
-        m_listen_backlog=ifa->getConfig()->get_int64_t("listen_backlog",128,"");
 
         if(pthread_create(&m_pthread_id_worker,NULL,worker__,this))
         {
@@ -93,491 +75,7 @@ SocketIO::Service::Service(const SERVICE_id& id, const std::string& nm, IInstanc
     }
 
 }
-void SocketIO::Service::onEPOLLIN_SOCK_DGRAM(const REF_getter<epoll_socket_info>&esi)
-{
-    MUTEX_INSPECTOR;
-    S_LOG(__FUNCTION__);
 
-    char buf[0x10000];
-    char sockaddBuf[100];
-    socklen_t sockaddBufLen=sizeof(sockaddBuf);
-    int r=recvfrom(CONTAINER(esi->get_fd()),buf,sizeof(buf),0,(sockaddr*)sockaddBuf,&sockaddBufLen);
-    if(r<0)
-    {
-        logErr2("recvfrom: %s",strerror(errno));
-        closeSocket(esi,std::string("recvfrom:")+strerror(errno),errno);
-        return;
-    }
-    msockaddr_in sa;
-    memcpy(&sa.u, sockaddBuf, static_cast<size_t>(sockaddBufLen));
-    passEvent(new socketEvent::UdpPacketIncoming(esi,sa,0,std::string(buf,r),poppedFrontRoute(esi->m_route)));
-
-}
-void SocketIO::Service::onEPOLLIN_STREAMTYPE_LISTENING(const REF_getter<epoll_socket_info>&esi)
-{
-    MUTEX_INSPECTOR;
-    S_LOG(__FUNCTION__);
-    msockaddr_in neu_sa;
-    socklen_t len=neu_sa.maxAddrLen();
-    SOCKET_fd neu_fd = ::accept(CONTAINER(esi->get_fd()), neu_sa.addr(),&len);
-
-    DBG(logErr2("accept: fd=%d",neu_fd));
-    if (CONTAINER(neu_fd) < 0)
-    {
-        logErr2("accept: %d errno %d %s", CONTAINER(neu_fd),errno,strerror(errno));
-        return;
-    }
-    msockaddr_in local_name;
-    msockaddr_in remote_name;
-    socklen_t sl=local_name.maxAddrLen();
-    socklen_t sr=remote_name.maxAddrLen();
-    if(getsockname(CONTAINER(neu_fd), local_name.addr(), &sl))
-    {
-        logErr2("getsockname: errno %d %s (%s %d)",errno,strerror(errno),__FILE__,__LINE__);
-    }
-    if(getpeername(CONTAINER(neu_fd), remote_name.addr(), &sr))
-    {
-        logErr2("getsockname: errno %d %s (%s %d)",errno,strerror(errno),__FILE__,__LINE__);
-    }
-
-
-    m_total_accepted++;
-    if (1)
-    {
-        XTRY;
-#ifdef _WIN32
-        u_long f = 1;
-        int r=ioctlsocket(CONTAINER(neu_fd), FIONBIO, &f);
-#else
-        int f = 1;
-        int r=ioctl(CONTAINER(neu_fd), FIONBIO, &f);
-#endif
-        if (r==-1)
-        {
-            logErr2("ioctl: errno %d",errno);
-        }
-        XPASS;
-
-#ifdef USE_SO_LINGER
-        struct linger l_;
-        l_.l_onoff=1;
-        l_.l_linger=(u_short)5;
-        if (::setsockopt(CONTAINER(neu_fd),SOL_SOCKET,SO_LINGER,(char*)&l_, sizeof(l_))!=0)
-        {
-            logErr2("setsockopt: linger: errno %d",errno);
-        }
-#endif
-
-
-    }
-    SOCKET_id _sid=iUtils->getSocketId();
-    REF_getter<epoll_socket_info> nesi=new epoll_socket_info(SOCK_STREAM,epoll_socket_info::STREAMTYPE_ACCEPTED,_sid,neu_fd,esi->m_route,
-            maxOutBufferSize, esi->socketDescription,esi->bufferVerify,m_socks->multiplexor);
-
-
-    nesi->local_name=local_name;
-    nesi->remote_name=remote_name;
-
-//    logErr2("@@ %s",__PRETTY_FUNCTION__);
-    m_socks->multiplexor->sockAddReadOnNew(nesi.operator ->());
-    m_socks->add(nesi);
-
-    route_t r=nesi->m_route;
-    r.pop_front();
-    passEvent(new socketEvent::Accepted(nesi,r));
-#ifdef HAVE_KQUEUE
-//    struct kevent ev1;
-//    EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//    m_socks->multiplexor->addEvent(ev1);
-#endif
-
-
-}
-void SocketIO::Service::onEPOLLIN_STREAMTYPE_CONNECTED_or_STREAMTYPE_ACCEPTED(const REF_getter<epoll_socket_info>&esi)
-{
-    MUTEX_INSPECTOR;
-    S_LOG(__FUNCTION__);
-    XTRY;
-#define READBUFSIZE 1024*1024*4
-    st_malloc buf(READBUFSIZE);
-    int r=0;
-
-    int fd=CONTAINER(esi->get_fd());
-    if(fd==-1)
-    {
-        logErr2("invalid case %s %d",__FILE__,__LINE__);
-        return;
-    }
-    r=::recv(fd,(char*)buf.buf,READBUFSIZE,0);
-    if (r==0 )
-    {
-        XTRY;
-//        logErr2("recv 0");
-        int err=errno;
-        closeSocket(esi,"recv 0, resetted by peer",err);
-        return;
-        XPASS;
-
-    }
-    if (r==-1)
-    {
-        if(errno)
-        {
-            DBG(logErr2("recv: errno %d %s",errno,strerror(errno)));
-        }
-#ifdef _WIN32
-        closeSocket(esi,"SocketService: close due recv return 0",errno);
-//        if(!esi->closed())
-//        {
-//            esi->close("SocketService: close due recv return 0");
-//        }
-#endif
-        std::string errText;
-        bool needClose=false;
-        XTRY;
-        switch (errno)
-        {
-        case EBADF:
-        case ECONNREFUSED:
-        case ENOTCONN:
-        case ENOTSOCK:
-#ifndef _WIN32
-        case ECONNRESET:
-#endif
-        {
-            XTRY;
-            needClose=true;
-            errText=(std::string)"SocketService: case EBADF:ECONNREFUSED:ENOTCONN:ENOTSOCK:ECONNRESET: "+strerror(errno);
-            return;
-            XPASS;
-        }
-        default:
-            needClose=true;
-            errText=(std::string)"SocketService: case default "+strerror(errno);
-            return;
-        }
-        if(needClose)
-            closeSocket(esi,errText,errno);
-        XPASS;
-    }
-    if(r>=0)
-    {
-#ifdef WITH_TCP_STATS
-        m_stats.addIn(esi,r);
-#endif
-        {
-            XTRY;
-            esi->m_inBuffer.append((char*)buf.buf,r);
-            XPASS;
-        }
-        m_total_recv+=r;
-        {
-            XTRY;
-            route_t rt=esi->m_route;
-            rt.pop_front();
-            bool verified=true;
-            if(esi->bufferVerify)
-            {
-                XTRY;
-
-                M_LOCK(esi->m_inBuffer);
-                verified=esi->bufferVerify(esi->m_inBuffer._mx_data);
-                XPASS;
-            }
-            else
-            {
-                DBG(logErr2("!if(esi->bufferVerify)"));
-                verified=true;
-            }
-            if(verified)
-            {
-                passEvent(new socketEvent::StreamRead(esi,rt));
-            }
-            XPASS;
-
-        }
-#ifdef HAVE_KQUEUE
-//        struct kevent ev1;
-//        EV_SET(&ev1,CONTAINER(esi->get_fd()),EVFILT_READ,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//        m_socks->multiplexor->addEvent(ev1);
-#endif
-
-    }
-    XPASS;
-
-}
-
-void SocketIO::Service::onEPOLLIN(const REF_getter<epoll_socket_info>&esi)
-{
-    MUTEX_INSPECTOR;
-    S_LOG(__FUNCTION__);
-    XTRY;
-
-    if(esi->m_socketType==SOCK_DGRAM)
-    {
-        onEPOLLIN_SOCK_DGRAM(esi);
-        return;
-    }
-
-    if (esi->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
-    {
-        XTRY;
-        onEPOLLIN_STREAMTYPE_LISTENING(esi);
-        XPASS;
-    }
-    else if (esi->m_streamType==epoll_socket_info::STREAMTYPE_CONNECTED)
-    {
-        onEPOLLIN_STREAMTYPE_CONNECTED_or_STREAMTYPE_ACCEPTED(esi);
-
-    }
-    else if(esi->m_streamType==epoll_socket_info::STREAMTYPE_ACCEPTED)
-    {
-        onEPOLLIN_STREAMTYPE_CONNECTED_or_STREAMTYPE_ACCEPTED(esi);
-    }
-
-    XPASS
-
-}
-void SocketIO::Service::onEPOLLOUT(const REF_getter<epoll_socket_info>&__EV_)
-{
-
-    MUTEX_INSPECTOR;
-
-    S_LOG(__FUNCTION__);
-
-    XTRY;
-    const REF_getter<epoll_socket_info>& esi=__EV_;
-    if(esi->m_socketType!=SOCK_STREAM)
-    {
-        throw CommonError("if(esi->m_socketType!=SOCK_STREAM) %s",esi->socketDescription);
-    }
-    if(esi->inConnection)
-    {
-        S_LOG("esi->inConnection");
-
-        XTRY;
-        if(!m_socks->count(esi->m_id))
-        {
-            logErr2("socket not found %d (%s %d)",CONTAINER(esi->m_id),__FILE__,__LINE__);
-            return;
-        }
-
-        msockaddr_in local_name;
-        msockaddr_in remote_name;
-        socklen_t sl=local_name.maxAddrLen();
-        socklen_t sr=remote_name.maxAddrLen();
-        if(getsockname(CONTAINER(esi->get_fd()), local_name.addr(), &sl))
-        {
-            throw CommonError("getsockname: errno fd=%d %d %s (%s %d)",CONTAINER(esi->get_fd()),errno,strerror(errno),__FILE__,__LINE__);
-        }
-        if(getpeername(CONTAINER(esi->get_fd()),  remote_name.addr(), &sr))
-        {
-            return;
-        }
-        esi->local_name=local_name;
-        if(esi->remote_name!=remote_name)
-            logErr2("if(esi->remote_name!=remote_name)!!! TODO");
-        esi->remote_name=remote_name;
-        route_t r=esi->m_route;
-//        logErr2("emit Connected");
-        passEvent(new socketEvent::Connected(esi, poppedFrontRoute(r)));
-        esi->inConnection=false;
-#ifdef HAVE_KQUEUE
-//        {
-//            struct kevent ev;
-//            EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//            m_socks->multiplexor->addEvent(ev);
-//        }
-//        {
-//            struct kevent ev;
-//            EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_READ,EV_ADD|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//            m_socks->multiplexor->addEvent(ev);
-//        }
-#endif
-#ifdef HAVE_EPOLL
-        {
-            struct epoll_event evtz {};
-            evtz.events=EPOLLIN;
-            evtz.data.u64= static_cast<uint64_t>(CONTAINER(esi->m_id));
-
-            if (epoll_ctl(m_socks->multiplexor->m_epoll.m_epollFd, EPOLL_CTL_MOD, CONTAINER(esi->get_fd()), &evtz) < 0)
-            {
-                logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
-            }
-
-        }
-
-#endif
-        m_socks->multiplexor->sockStopWrite(esi.operator->());
-        return;
-        XPASS;
-    }
-
-
-    bool need_to_close=false;
-//    logErr2("bool need_to_close=false;");
-    {
-        MUTEX_INSPECTOR;
-        XTRY;
-        int res=0;
-        {
-            size_t sz;
-            if(esi->closed()) return;
-//            if(CONTAINER(esi->get_fd())==-1)
-//                return;
-            sz=esi->m_outBuffer.size();
-            if(sz)
-            {
-                res=esi->m_outBuffer.send(esi->get_fd(),esi.operator->());
-                if(res>0)
-                {
-#ifdef WITH_TCP_STATS
-                    m_stats.addOut(esi,res);
-#endif
-                    m_total_send+=res;
-
-                    if(esi->m_outBuffer.size()==0 && esi->markedToDestroyOnSend)
-                    {
-                        need_to_close=true;
-                    }
-
-                    int fd=CONTAINER(esi->get_fd());
-#ifdef HAVE_KQUEUE
-//                    if(fd!=-1)
-//                    {
-//                        if(esi->m_outBuffer.size()==0)
-//                        {
-
-//                            struct kevent ev;
-//                            EV_SET(&ev,fd,EVFILT_WRITE,EV_DELETE|EV_CLEAR,0,0,(void*)(long)CONTAINER(esi->m_id));
-//                            m_socks->multiplexor->addEvent(ev);
-
-//                        }
-//                    }
-#endif
-#ifdef HAVE_EPOLL
-                    {
-
-                        if(esi->m_outBuffer.size()==0 && fd!=-1)
-                        {
-                            struct epoll_event evtz {};
-                            evtz.events=EPOLLIN;
-                            evtz.data.u64= static_cast<uint64_t>(CONTAINER(esi->m_id));
-                            if (epoll_ctl(m_socks->multiplexor->m_epoll.m_epollFd, EPOLL_CTL_MOD, CONTAINER(esi->get_fd()), &evtz) < 0)
-                            {
-                                logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
-                            }
-                        }
-
-                    }
-
-#endif
-
-                }
-                if(esi->m_outBuffer.size()==0)
-                {
-                    route_t r=esi->m_route;
-                    r.pop_front();
-                    passEvent(new socketEvent::NotifyOutBufferEmpty(esi, r));
-                }
-            }
-        }
-        if(need_to_close)
-        {
-            XTRY;
-            closeSocket(esi,"marked to destroy on send",0);
-            return;
-            XPASS;
-        }
-        if (res==-1)
-        {
-            XTRY;
-            DBG(logErr2("send: errno %d",errno));
-            switch(errno)
-            {
-#ifndef _WIN32
-            case ENOBUFS:
-#endif
-            case EAGAIN:
-                return;
-            default:
-            {
-                closeSocket(esi,"send result (-1)",0);
-
-            }
-            }
-            /**                EBADF   Указан неверный дескриптор.
-
-                            ENOTSOCK
-                                    Аргумент s не является сокетом.
-
-                            EFAULT  В качестве параметра передан неверный адрес.
-
-                            EMSGSIZE
-                                    Сокет  требует,  чтобы  сообщение  было  отослано  за   одну   операцию
-                                    (атомарно), а размер сообщения не позволяет этого.
-
-                            EAGAIN или EWOULDBLOCK
-                                    Сокет  помечен как неблокирующий, а запрошенная операция должна была бы
-                                    заблокировать его.
-
-                            ENOBUFS Исходящая очередь сетевого интерфейса заполнена.  Обычно это  означает,
-                                    что интерфейс прекратил отправку, но может быть также вызвано временной
-                                    перегрузкой.  (Этого не может произойти под  Linux,  потому  что  здесь
-                                    пакеты просто отбрасываются, когда очередь устройства переполняется.)
-
-                            EINTR   Появился сигнал.
-
-                            ENOMEM  Не хватило памяти.
-
-                            EINVAL  Передан неверный аргумент.
-
-                            EPIPE   Локальный  конец сокета, ориентированного на соединение, был закрыт.  В
-                                    этом случае процесс  также  получит  сигнал  SIGPIPE,  если  только  не
-                                    установлен флаг MSG_NOSIGNAL.*/
-
-            XPASS;
-            return;
-        }
-        XPASS;
-    }
-    XPASS;
-}
-void SocketIO::Service::onEPOLLERR(const REF_getter<epoll_socket_info>& esi)
-{
-    MUTEX_INSPECTOR;
-
-    S_LOG(__FUNCTION__);
-
-    if(esi->m_socketType!=SOCK_STREAM)
-    {
-        throw CommonError("if(esi->m_socketType!=SOCK_STREAM) %s %s",esi->socketDescription,__PRETTY_FUNCTION__);
-    }
-
-    XTRY;
-
-    int       error = 0;
-    socklen_t errlen = sizeof(error);
-    if (getsockopt(CONTAINER(esi->get_fd()), SOL_SOCKET, SO_ERROR,
-#ifdef _WIN32
-                   (char *)&error,
-#else
-                   (void *)&error,
-#endif
-                   &errlen) == 0)
-    {
-        if(error!=0)
-        {
-#ifndef __FreeBSD__
-#endif
-        }
-    }
-
-    closeSocket(esi,"EPOLERR",error);
-
-
-    XPASS;
-}
 void *SocketIO::Service::worker__(void*p)
 {
     auto* obj=(SocketIO::Service*)p;
@@ -585,300 +83,6 @@ void *SocketIO::Service::worker__(void*p)
     return nullptr;
 }
 
-void SocketIO::Service::worker()
-{
-    MUTEX_INSPECTOR;
-#if defined __MACH__
-    pthread_setname_np("SocketIO");
-#else
-#if !defined _WIN32 && !defined __FreeBSD__
-    pthread_setname_np(pthread_self(),"SocketIO");
-#endif
-#endif
-
-    //
-#ifdef HAVE_EPOLL
-    struct epoll_event events[m_socks->multiplexor->m_epoll.size+10];
-#endif
-#ifdef HAVE_KQUEUE
-#endif
-    while (1)
-    {
-        MUTEX_INSPECTOR;
-        XTRY;
-        try
-        {
-#ifdef HAVE_SELECT
-
-            if(m_isTerminating) return ;
-            std::map<SOCKET_id,REF_getter<epoll_socket_info> > cc=m_socks->getContainer();
-            fd_set readfds;
-            fd_set writefds;
-            fd_set exceptfds;
-            FD_ZERO(&readfds);
-            FD_ZERO(&writefds);
-            FD_ZERO(&exceptfds);
-            std::set<int> socklist;
-            for(auto i=cc.begin();
-                    i!=cc.end();
-                    i++)
-            {
-                REF_getter<epoll_socket_info> esi=i->second;
-                if(CONTAINER(esi->get_fd())!=-1)
-                {
-                    FD_SET(CONTAINER(esi->get_fd()),&readfds);
-                    FD_SET(CONTAINER(esi->get_fd()),&exceptfds);
-                    if(esi->m_outBuffer.size())
-                        FD_SET(CONTAINER(esi->get_fd()),&writefds);
-                    socklist.insert(CONTAINER(esi->get_fd()));
-
-
-                }
-            }
-            if(socklist.size())
-            {
-                MUTEX_INSPECTOR;
-                struct timeval tv;
-                tv.tv_sec=0;
-                tv.tv_usec=10000;
-
-                int r=::select(*socklist.rbegin()+1,&readfds,&writefds,&exceptfds,&tv);
-                if(r>0)
-                {
-                    for(auto i:cc)
-                    {
-                        REF_getter<epoll_socket_info> esi=i.second;
-                        if(FD_ISSET(CONTAINER(esi->get_fd()),&readfds))
-                            this->onEPOLLIN(esi);
-                        if(FD_ISSET(CONTAINER(esi->get_fd()),&writefds))
-                            this->onEPOLLOUT(esi);
-                        if(FD_ISSET(CONTAINER(esi->get_fd()),&exceptfds))
-                        {
-                            this->onEPOLLERR(esi);
-                            m_socks->remove(esi->m_id);
-                        }
-
-                    }
-                }
-                else
-                {
-                    MUTEX_INSPECTOR;
-                   if(r==-1)
-                    {
-                        if(errno==EBADF)
-                        {
-
-                        }
-                        logErr2("select: errno %d",errno);
-                    }
-                }
-            }
-#endif
-#ifdef HAVE_EPOLL
-
-            if(m_isTerminating) return ;
-//            if(iUtils->isTerminating()) return NULL;
-            int nfds;
-            {
-                MUTEX_INSPECTOR;
-                nfds=epoll_wait(m_socks->multiplexor->m_epoll.m_epollFd,events,m_socks->multiplexor->m_epoll.size,m_socks->multiplexor->m_epoll.timeout_millisec);
-            }
-
-//            int __ERRNO=errno;
-//            if (nfds==-1)
-//            {
-//                MUTEX_INSPECTOR;
-//                if(__ERRNO==EINTR)
-//                {
-//                    continue;
-//                }
-//                logErr2("epoll_wait: __ERRNO %d",__ERRNO);
-
-
-//                std::map<SOCKET_id,REF_getter<epoll_socket_info> >cc=m_socks->getContainer();
-//                for(auto & i : cc)
-//                {
-//                    MUTEX_INSPECTOR;
-
-//                    REF_getter<epoll_socket_info> &ss=i.second;
-
-//                    if(ss->m_streamType==epoll_socket_info::STREAMTYPE_LISTENING)
-//                    {
-//                        closeSocket(ss,"epoll_wait failed",__ERRNO);
-//                        m_socks->remove(ss->m_id);
-//                        const REF_getter<socketEvent::AddToListenTCP> e=new socketEvent::AddToListenTCP(ss->m_id,ss->local_name,ss->socketDescription,true,ss->bufferVerify,ss->m_route);
-//                        on_AddToListenTCP(e.operator ->());
-//                    }
-//                }
-//                continue;
-//            }
-            for (int i=0; i<nfds; i++)
-            {
-                MUTEX_INSPECTOR;
-                XTRY;
-                SOCKET_id id;
-                CONTAINER(id)=events[i].data.u64;
-                REF_getter<epoll_socket_info> __EV=m_socks->getOrNull(id);
-                if (!__EV.valid())
-                {
-                    MUTEX_INSPECTOR;
-                    continue;
-                }
-                if (events[i].events&EPOLLERR)
-                {
-                    MUTEX_INSPECTOR;
-                    onEPOLLERR(__EV);
-                }
-                if (events[i].events&EPOLLIN )
-                {
-                    MUTEX_INSPECTOR;
-                    onEPOLLIN(__EV);
-                }
-                if (events[i].events&EPOLLOUT)
-                {
-                    MUTEX_INSPECTOR;
-                    onEPOLLOUT(__EV);
-                }
-                XPASS;
-            }
-#endif
-#ifdef HAVE_KQUEUE
-            if(m_isTerminating) return;
-
-            timespec ts;
-            ts.tv_sec=0;
-            ts.tv_nsec=epoll_timeout_millisec*1000;
-            auto evs=m_socks->multiplexor->extractEvents();
-
-
-            struct kevent evList[1024];
-
-            int nev = kevent(m_socks->multiplexor->getKqueue(), &evs[0], evs.size(), evList, sizeof(evList), &ts);
-            if(m_isTerminating) return;
-            if (nev < 0)
-            {
-                logErr2("kevent error: %d %s", errno, strerror(errno));
-                continue;
-
-            }
-            for (int i=0; i<nev; i++) {
-                MUTEX_INSPECTOR;
-                SOCKET_id sid;
-                CONTAINER(sid)=(long)evList[i].udata;
-                REF_getter<epoll_socket_info> esi=m_socks->getOrNull(sid);
-                if(!esi.valid())
-                {
-                    if(CONTAINER(sid)!=-1)
-                    {
-                        DBG(logErr2("kevent: esi == NULL sid %d",CONTAINER(sid)));
-                    }
-                    continue;
-                }
-                auto& l=evList[i];
-
-                if(l.filter==EVFILT_READ)
-                {
-                    MUTEX_INSPECTOR;
-                    S_LOG("EVFILT_READ");
-                    {
-                        S_LOG("EV_ADD");
-                        if(l.flags & EV_EOF)
-                        {
-                            MUTEX_INSPECTOR;
-                            S_LOG("EV_EOF");
-                            closeSocket(esi,"EV_EOF",l.data);
-                            m_socks->remove(esi->m_id);
-                        }
-                        else if(l.flags & EV_ERROR)
-                        {
-                            MUTEX_INSPECTOR;
-                            S_LOG("EV_ERROR");
-                            closeSocket(esi,"EV_EOF",l.data);
-                            m_socks->remove(esi->m_id);
-                        }
-                        else
-                        {
-                            onEPOLLIN(esi);
-                            continue;
-                        }
-                    }
-
-                }
-                else if(l.filter==EVFILT_WRITE)
-                {
-                    MUTEX_INSPECTOR;
-
-                    S_LOG("EVFILT_WRITE");
-//                    if(l.flags&EV_ADD)
-                    {
-                        S_LOG("EV_ADD");
-                        if(l.flags & EV_EOF)
-                        {
-                            closeSocket(esi,"EV_EOF",0);
-                            m_socks->remove(esi->m_id);
-                        }
-                        else if(l.flags & EV_ERROR)
-                        {
-                            closeSocket(esi,"EV_EOF",l.data);
-                            m_socks->remove(esi->m_id);
-                        }
-                        else
-                        {
-                            MUTEX_INSPECTOR;
-                            onEPOLLOUT(esi);
-                            continue;
-                        }
-                    }
-                }
-                else logErr2("invalid case %s %d",__FILE__,__LINE__);
-
-            }
-#endif
-        }
-        catch(std::exception &e)
-        {
-            logErr2("exception: %s %s %d",e.what(),__FILE__,__LINE__);
-        }
-        XPASS;
-    }
-}
-void SocketIO::Service::closeSocket(const REF_getter<epoll_socket_info>&esi,const std::string &reason, int errNo)
-{
-    MUTEX_INSPECTOR;
-    if(esi->closed())
-    {
-        logErr2("@@  socket already closed %s",reason.c_str());
-        return;
-    }
-
-    if(esi->m_streamType==epoll_socket_info::STREAMTYPE_CONNECTED)
-    {
-        MUTEX_INSPECTOR;
-        if(esi->inConnection)
-        {
-            passEvent(new socketEvent::ConnectFailed(esi,esi->remote_name,errNo,poppedFrontRoute(esi->m_route)));
-        }
-        else
-        {
-            passEvent(new socketEvent::Disconnected(esi,reason,poppedFrontRoute(esi->m_route)));
-        }
-    }
-    else if(esi->m_streamType==epoll_socket_info::STREAMTYPE_ACCEPTED)
-    {
-        MUTEX_INSPECTOR;
-        passEvent(new socketEvent::Disaccepted(esi,reason,poppedFrontRoute(esi->m_route)));
-
-    }
-    else throw CommonError("invalid case %s %d",__FILE__,__LINE__);
-
-
-
-    XTRY;
-
-    m_socks->remove(esi->m_id);
-    esi->close(reason);
-    XPASS;
-}
 bool  SocketIO::Service::on_startService(const systemEvent::startService*)
 {
     XTRY;
@@ -913,13 +117,13 @@ bool  SocketIO::Service::handleEvent(const REF_getter<Event::Base>&e)
     if(timerEventEnum::TickTimer==ID)
         return on_TickTimer((const timerEvent::TickTimer*)e.operator->());
     if(socketEventEnum::AddToListenTCP==ID)
-        return on_AddToListenTCP((const socketEvent::AddToListenTCP*)e.operator->());
+        return on_forward_to_thread(e);
     if(socketEventEnum::AddToConnectTCP==ID)
-        return on_AddToConnectTCP((const socketEvent::AddToConnectTCP*)e.operator->());
-    if(socketEventEnum::UdpAssoc==ID)
-        return on_UdpAssoc((const socketEvent::UdpAssoc*)e.operator->());
+        return on_forward_to_thread(e);
+    if(socketEventEnum::Close==ID)
+        return on_forward_to_thread(e);
     if(socketEventEnum::Write==ID)
-        return on_Write((const socketEvent::Write*)e.operator->());
+        return on_forward_to_thread(e);
     if(webHandlerEventEnum::RequestIncoming==ID)
         return on_RequestIncoming((const webHandlerEvent::RequestIncoming*)e.operator->());
     if(systemEventEnum::startService==ID)
@@ -943,314 +147,24 @@ void registerSocketModule(const char* pn)
 
 
 }
-bool  SocketIO::Service::on_UdpAssoc(const socketEvent::UdpAssoc *ev)
+
+bool  SocketIO::Service::on_forward_to_thread(const REF_getter<Event::Base> &ev)
 {
     MUTEX_INSPECTOR;
-    logErr2(GREEN("on_UdpAssoc %s"),ev->dump().toStyledString().c_str());
-    int fd4=::socket (ev->addr4.family(), SOCK_DGRAM, 0);
-    int fd6=::socket (ev->addr6.family(), SOCK_DGRAM, 0);
-    logErr2("fd4=%d",fd4);
-    REF_getter<epoll_socket_info> nesi4(new epoll_socket_info(SOCK_DGRAM,epoll_socket_info::STREAMTYPE_UDP_ASSOC,ev->socketId4,fd4,ev->route,
-                                        maxOutBufferSize,ev->socketDescription,nullptr,m_socks->multiplexor));
-    REF_getter<epoll_socket_info> nesi6(new epoll_socket_info(SOCK_DGRAM,epoll_socket_info::STREAMTYPE_UDP_ASSOC,ev->socketId6,fd6,ev->route,
-                                        maxOutBufferSize,ev->socketDescription,nullptr,m_socks->multiplexor));
-
-
-    if (nesi4->closed())
     {
-        throw CommonError("invalid case %s %d",__FILE__,__LINE__);
+        WLocker lk(mx.lock);
+        mx.workerEvents.push_back(ev);
+        mx.dequeSize++;
     }
-    if (nesi6->closed())
-    {
-        throw CommonError("invalid case %s %d",__FILE__,__LINE__);
-    }
-    {
-        int i = 1;
-        if(setsockopt(CONTAINER(nesi4->get_fd()),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
-        {
-            logErr2("setsockopt: %s",strerror(errno));
-            closeSocket(nesi4,"setsockopt",errno);
-            return true;
-        }
-    }
-    {
-        int i = 1;
-        if(setsockopt(CONTAINER(nesi6->get_fd()),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
-        {
-            logErr2("setsockopt: %s",strerror(errno));
-            closeSocket(nesi6,"setsockopt",errno);
-            return true;
-        }
-    }
-
-    while (bind (CONTAINER(nesi4->get_fd()),ev->addr4.addr(), ev->addr4.addrLen()) == -1)
-    {
-        int err=errno;
-#ifdef DEBUG
-        logErr2("Server: bind()  failed: errno %d %s %s (%s) %s %d", errno,strerror(errno),ev->addr4.dump().c_str(),ev->route.dump().c_str(),__FILE__,__LINE__);
-#else
-        logErr2("Server: bind()  failed: errno %d %s %s", errno, strerror(errno),ev->addr4.dump().c_str());
-#endif
-        passEvent(new socketEvent::UdpAssocRSP(
-                      ev->socketId4,
-                      ev->socketId6,
-                      ev->addr4,
-                      ev->addr6,
-                      nullptr,nullptr,
-                      err,poppedFrontRoute(ev->route)));
-        return true;
-    }
-    while (bind (CONTAINER(nesi6->get_fd()),ev->addr6.addr(), ev->addr6.addrLen()) == -1)
-    {
-        int err=errno;
-#ifdef DEBUG
-        logErr2("Server: bind()  failed: errno %d %s %s (%s) %s %d", errno,strerror(errno),ev->addr6.dump().c_str(),ev->route.dump().c_str(),__FILE__,__LINE__);
-#else
-        logErr2("Server: bind()  failed: errno %d %s %s", errno, strerror(errno),ev->addr6.dump().c_str());
-#endif
-        passEvent(new socketEvent::UdpAssocRSP(
-                      ev->socketId4,
-                      ev->socketId6,
-                      ev->addr4,
-                      ev->addr6,
-                      nullptr,nullptr,
-                      err,poppedFrontRoute(ev->route)));
-//        iUtils->setTerminate();
-        return true;
-    }
-
-    msockaddr_in addr4;
-    msockaddr_in addr6;
-    socklen_t len4=addr4.maxAddrLen();
-    socklen_t len6=addr6.maxAddrLen();
-    if(getsockname(CONTAINER(nesi4->get_fd()),addr4.addr(),&len4))
-    {
-        closeSocket(nesi4,"getsockname4",errno);
-        closeSocket(nesi6,"getsockname4",errno);
-        logErr2("getsockname: %s",strerror(errno));
-        return true;
-
-    }
-    if(getsockname(CONTAINER(nesi6->get_fd()),addr6.addr(),&len6))
-    {
-        closeSocket(nesi4,"getsockname6",errno);
-        closeSocket(nesi6,"getsockname6",errno);
-        logErr2("getsockname: %s",strerror(errno));
-        return true;
-
-    }
-    logErr2(BLUE("binded4 to %s (%s)"),addr4.dump().c_str(),ev->route.dump().c_str());
-    logErr2(BLUE("binded6 to %s (%s)"),addr6.dump().c_str(),ev->route.dump().c_str());
-
-    nesi4->local_name=addr4;
-    nesi6->local_name=addr6;
-
-    passEvent(new socketEvent::UdpAssocRSP(
-                  ev->socketId4,
-                  ev->socketId6,
-                  addr4,
-                  addr6,
-                  nesi4,nesi6,
-                  0,poppedFrontRoute(ev->route)));
-
-
-    m_socks->multiplexor->sockAddReadOnNew(nesi4.operator ->());
-    m_socks->multiplexor->sockAddReadOnNew(nesi6.operator ->());
-    m_socks->add(nesi4);
-    m_socks->add(nesi6);
-    return true;
-}
-bool  SocketIO::Service::on_AddToListenTCP(const socketEvent::AddToListenTCP*ev)
-{
-    MUTEX_INSPECTOR;
-
-    S_LOG(__FUNCTION__);
-
-    int fd=::socket (ev->addr.family(), SOCK_STREAM, IPPROTO_TCP);
-    REF_getter<epoll_socket_info> nesi(new epoll_socket_info(SOCK_STREAM,epoll_socket_info::STREAMTYPE_LISTENING,ev->socketId,fd,ev->route,
-                                       maxOutBufferSize,ev->socketDescription,ev->bufferVerify,m_socks->multiplexor));
-
-
-    if (nesi->closed())
-    {
-        throw CommonError("invalid case %s %d",__FILE__,__LINE__);
-
-    }
-
-    {
-        MUTEX_INSPECTOR;
-        int i = 1;
-        if(setsockopt(CONTAINER(nesi->get_fd()),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
-        {
-            closeSocket(nesi,"setsockopt",errno);
-            return true;
-        }
-    }
-
-    while (bind (CONTAINER(nesi->get_fd()),ev->addr.addr(), ev->addr.addrLen()) == -1)
-    {
-#ifdef DEBUG
-        logErr2("Server: bind()  failed: errno %d %s %s (%s) %s %d", errno,strerror(errno),ev->addr.dump().c_str(),ev->route.dump().c_str(),__FILE__,__LINE__);
-#else
-        logErr2("Server: bind()  failed: errno %d %s %s", errno, strerror(errno),ev->addr.dump().c_str());
-#endif
-        iUtils->setTerminate();
-        return true;
-    }
-
-
-    msockaddr_in addr;
-    socklen_t len=addr.maxAddrLen();
-    if(getsockname(CONTAINER(nesi->get_fd()),addr.addr(),&len))
-    {
-        closeSocket(nesi,"getsockname",errno);
-        return true;
-
-    }
-
-    logErr2("binded to %s (%s)",addr.dump().c_str(),ev->route.dump().c_str());
-
-    if (listen(CONTAINER(nesi->get_fd()),(int)m_listen_backlog)==-1)
-    {
-        closeSocket(nesi,"listen",errno);
-        return true;
-    }
-
-    nesi->local_name=addr;
-    route_t r=nesi->m_route;
-    r.pop_front();
-    passEvent(new socketEvent::NotifyBindAddress(nesi,ev->socketDescription,ev->rebind,r));
-
-    m_socks->multiplexor->sockAddReadOnNew(nesi.operator ->());
-    m_socks->add(nesi);
     return true;
 }
 
-bool  SocketIO::Service::on_AddToConnectTCP(const socketEvent::AddToConnectTCP*ev)
-{
-    MUTEX_INSPECTOR;
 
-    XTRY;
-    S_LOG(__FUNCTION__);
-    int PF=ev->addr.family()==AF_INET?PF_INET:PF_INET6;
-    SOCKET_fd sock=::socket (PF, SOCK_STREAM, IPPROTO_TCP);
-    if (CONTAINER(sock)==-1)
-    {
-        logErr2("cannot create socket");
-        return true;
-    }
-    REF_getter<epoll_socket_info> nesi=new epoll_socket_info(SOCK_STREAM,epoll_socket_info::STREAMTYPE_CONNECTED,ev->socketId,sock,ev->route,
-            maxOutBufferSize,ev->socketDescription,ev->bufferVerify,m_socks->multiplexor);
-
-    nesi->inConnection=true;
-
-    {
-        MUTEX_INSPECTOR;
-        int i = 1;
-        if(setsockopt(CONTAINER(sock),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))
-        {
-            logErr2("if(setsockopt(CONTAINER(sock),SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i)))");
-            closeSocket(nesi,"setsockopt",errno);
-            return true;
-        }
-    }
-
-//#ifndef __IOS__
-    if (1)
-    {
-#ifdef _WIN32
-        u_long f = 1;
-        int r=ioctlsocket(CONTAINER(sock), FIONBIO, &f);
-#elif __ANDROID__
-        int flags = fcntl(CONTAINER(sock), F_GETFL);
-        int r=fcntl(CONTAINER(sock),F_SETFL,O_NONBLOCK|flags);
-#else
-        int f = 1;
-        int r=ioctl(CONTAINER(sock), FIONBIO, &f);
-#endif
-        if (r==-1)
-        {
-            closeSocket(nesi,"ioctl",errno);
-            return true;
-
-        }
-    }
-
-    {
-        MUTEX_INSPECTOR;
-        struct linger l_ {};
-        l_.l_onoff=1;
-        l_.l_linger=(u_short)5;
-        if (::setsockopt(CONTAINER(sock),SOL_SOCKET,SO_LINGER,(char*)&l_, sizeof(l_))!=0)
-        {
-            closeSocket(nesi,"SP_LINGER",errno);
-            return true;
-        }
-    }
-
-    msockaddr_in sa=ev->addr;
-#ifdef __IOS__
-    if(ev->addr.family()==AF_INET)
-    {
-        sa.u.sa4.sin_len=16;
-    }
-#endif
-    nesi->remote_name=ev->addr;
-    m_socks->multiplexor->sockAddRWOnNew(nesi.operator->());
-    m_socks->add(nesi);
-
-    nesi->remote_name=sa;
-    int cres=::connect(CONTAINER(sock),sa.addr(), sa.addrLen());
-    if(cres)
-    {
-#ifndef _WIN32
-        if(errno != EINPROGRESS)
-        {
-
-            closeSocket(nesi,"connect",errno);
-            passEvent(new socketEvent::ConnectFailed(nesi,sa,errno,poppedFrontRoute(ev->route)));
-            return true;
-        }
-
-#else
-        if(errno==0)
-        {
-            nesi->inConnection=false;
-            passEvent(new socketEvent::Connected(nesi,poppedFrontRoute(ev->route)));
-        }
-        else {
-            logErr2("errno %d %s",errno, strerror(errno));
-            logErr2("if(::connect(CONTAINER(sock),sa.addr(), sa.addrLen()))");
-
-        }
-#endif
-
-    }
-    else {
-        logErr2("passEvent(new socketEvent::Connected(nesi,poppedFrontRoute(ev->route)));");
-        passEvent(new socketEvent::Connected(nesi,poppedFrontRoute(ev->route)));
-    }
-
-
-
-    XPASS;
-    return true;
-}
-
-bool SocketIO::Service::on_Write(const socketEvent::Write* e)
-{
-    MUTEX_INSPECTOR;
-
-    REF_getter<epoll_socket_info> esi=m_socks->getOrNull(e->socketId);
-    if(esi.valid())
-        esi->write_(e->buf);
-    return true;
-}
 bool SocketIO::Service::on_RequestIncoming(const webHandlerEvent::RequestIncoming* e)
 {
     MUTEX_INSPECTOR;
 
-    HTTP::Response cc;
+    HTTP::Response cc(iInstance);
     cc.content+="<h1>Socket report</h1><p>";
 
     Json::Value v=jdump();
@@ -1261,19 +175,372 @@ bool SocketIO::Service::on_RequestIncoming(const webHandlerEvent::RequestIncomin
     return true;
 }
 
-Json::Value SocketIO::SocketsContainerForSocketIO::jdump()
-{
 
-    Json::Value v;
-    return v;
+
+
+void SocketIO::Service::after_close(uv_handle_t* handle)
+{
+    MUTEX_INSPECTOR;
+
+//    printf("after_close\n");
+    m_opaque* op=(m_opaque*)handle->data;
+    op->esi->_closed=true;
+    if(op->esi->STREAMTYPE_ACCEPTED)
+        op->service->passEvent(new socketEvent::Disaccepted(op->esi,"uv close",poppedFrontRoute(op->esi->m_route)));
+    if(op->esi->STREAMTYPE_CONNECTED)
+        op->service->passEvent(new socketEvent::Disconnected(op->esi,"uv close",poppedFrontRoute(op->esi->m_route)));
+    delete(op);
+}
+
+void SocketIO::Service::after_shutdown(uv_shutdown_t* req, int status)
+{
+    MUTEX_INSPECTOR;
+
+
+    uv_close((uv_handle_t*)req->handle, after_close);
+    delete (req);
+}
+void SocketIO::Service::after_write(uv_write_t* req1, int status)
+{
+    MUTEX_INSPECTOR;
+    uv_buf_t* buft=(uv_buf_t*)req1->data;
+
+    auto handle=req1->handle;
+
+    if(buft!=NULL)
+    {
+        if (buft->base != NULL)
+            free(buft->base);
+        delete buft;
+    }
+
+    delete req1;
+
+    m_opaque *op=(m_opaque *)handle->data;
+    if(op->esi->markedToDestroyOnSend)
+    {
+        uv_shutdown_t* req = new uv_shutdown_t;
+        assert(req != NULL);
+
+        int r = uv_shutdown(req, (uv_stream_t*) op->esi->m_stream, after_shutdown);
+        if(r)
+            printf("err: %s\n",uv_strerror(r));
+
+        assert(r == 0);
+
+//        uv_close((uv_handle_t*)handle, after_close);
+        return;
+
+    }
+    if (status == 0)
+    {
+        return;
+    }
+
+    fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
+
+    if (status == UV_ECANCELED)
+    {
+        return;
+    }
+
+    assert(status == UV_EPIPE);
+    uv_close((uv_handle_t*)handle, after_close);
 }
 
 
-
-SocketIO::SocketsContainerForSocketIO::~SocketsContainerForSocketIO()
+void SocketIO::Service::after_read(uv_stream_t* handle,
+        ssize_t nread,
+        const uv_buf_t* buf)
 {
-#ifdef HAVE_KQUEUE
-//    multiplexor->clear();
-#endif
+    MUTEX_INSPECTOR;
+    int r;
 
+    if (nread <= 0 && buf->base != NULL)
+        free(buf->base);
+
+    if (nread == 0)
+        return;
+
+    if (nread < 0) {
+//        fprintf(stderr, "err: %s\n", uv_strerror(nread));
+
+
+        uv_shutdown_t* req = new uv_shutdown_t;
+        assert(req != NULL);
+        r = uv_shutdown(req, handle, after_shutdown);
+        if(r)
+            printf("err: %s\n",uv_strerror(r));
+
+        assert(r == 0);
+
+        return;
+    }
+    m_opaque* op=(m_opaque*)handle->data;
+
+
+    op->esi->m_inBuffer.append(buf->base, nread);
+    std::string recv(buf->base, nread);
+    op->service->passEvent(new socketEvent::StreamRead(op->esi,poppedFrontRoute(op->esi->m_route)));
+    free(buf->base);
+}
+
+void SocketIO::Service::worker_alloc_cb(uv_handle_t* handle,
+                                        size_t suggested_size,
+                                        uv_buf_t* buf) {
+    MUTEX_INSPECTOR;
+    buf->base = (char*)malloc(suggested_size);
+    assert(buf->base != NULL);
+    buf->len = suggested_size;
+}
+
+
+void SocketIO::Service::after_listen(uv_stream_t* server, int status)
+{
+
+    MUTEX_INSPECTOR;
+    int r;
+    m_opaque* server_op=(m_opaque* )server->data;
+    assert(status == 0);
+
+    uv_tcp_t* stream = new uv_tcp_t();
+
+    assert(stream != NULL);
+
+    r = uv_tcp_init(uv_default_loop(), stream);
+    if(r)
+        printf("err: %s\n",uv_strerror(r));
+    assert(r == 0);
+
+
+    r = uv_accept(server, (uv_stream_t*)stream);
+    if(r)
+        printf("err: %s\n",uv_strerror(r));
+    assert(r == 0);
+    SOCKET_id _sid=iUtils->getSocketId();
+    REF_getter<epoll_socket_info> nesi=new epoll_socket_info(server_op->service->iInstance,
+            SOCK_STREAM,
+            epoll_socket_info::STREAMTYPE_ACCEPTED,
+            _sid,stream,server_op->esi->m_route,
+            server_op->esi->socketDescription,server_op->esi->bufferVerify);
+    {
+        msockaddr_in sa;
+        int len=sizeof(sa);
+        uv_tcp_getsockname(stream,(sockaddr*)&sa, &len);
+        nesi->local_name=new P_msockaddr_in(sa);
+    }
+    {
+        msockaddr_in sa;
+        int len=sizeof(sa);
+        uv_tcp_getpeername(stream,(sockaddr*)&sa, &len);
+        nesi->remote_name=new P_msockaddr_in(sa);
+    }
+    stream->data=new m_opaque(server_op->service,nesi);
+
+    server_op->service->passEvent(new socketEvent::Accepted(nesi,poppedFrontRoute(server_op->esi->m_route)));
+
+    r = uv_read_start((uv_stream_t*)stream, worker_alloc_cb, after_read);
+    if(r)
+        printf("err: %s\n",uv_strerror(r));
+    assert(r == 0);
+}
+void SocketIO::Service::after_connect(uv_connect_t *req1, int status)
+{
+    MUTEX_INSPECTOR;
+    auto handle=req1->handle;
+    m_opaque *op=(m_opaque *)handle->data;
+    delete  req1;
+    if(status==0)
+    {
+        {
+            msockaddr_in sa;
+            int len=sizeof(sa);
+            uv_tcp_getsockname((uv_tcp_t*)handle,(sockaddr*)&sa, &len);
+            op->esi->local_name=new P_msockaddr_in(sa);
+        }
+        {
+            msockaddr_in sa;
+            int len=sizeof(sa);
+            uv_tcp_getpeername((uv_tcp_t*)handle,(sockaddr*)&sa, &len);
+            op->esi->remote_name=new P_msockaddr_in(sa);
+        }
+        op->service->passEvent(new socketEvent::Connected(op->esi,poppedFrontRoute(op->esi->m_route)));
+    }
+    else
+    {
+        op->service->passEvent(new socketEvent::ConnectFailed(op->esi,
+                                                                   op->esi->request_for_connect->addr,
+                                                                   status,
+                                                                   poppedFrontRoute(op->esi->m_route)));
+    }
+      if (status == -1) {
+        fprintf(stderr, "error on_write_end");
+        return;
+      }
+
+      int r = uv_read_start((uv_stream_t*)handle, worker_alloc_cb, after_read);
+      if(r)
+          printf("err: %s\n",uv_strerror(r));
+      assert(r == 0);
+
+}
+
+void SocketIO::Service::worker_AddToListenTCP(const socketEvent::AddToListenTCP*ev)
+{
+    MUTEX_INSPECTOR;
+    uv_tcp_t* tcp_server;
+    int r;
+
+
+    tcp_server = new uv_tcp_t();
+    assert(tcp_server != NULL);
+
+    r = uv_tcp_init(uv_default_loop(), tcp_server);
+    if(r)
+        printf("err: %s\n",uv_strerror(r));
+    assert(r == 0);
+
+    r = uv_tcp_bind(tcp_server, (const struct sockaddr*)&ev->addr, 0);
+    if(r)
+    {
+        printf("err: %s\n",uv_strerror(r));
+        return;
+    }
+    assert(r == 0);
+
+    msockaddr_in sa;
+    int len=sizeof(sa);
+    uv_tcp_getsockname(tcp_server,(sockaddr*)&sa, &len);
+    logErr2("binded to %s (%s)",sa.dump().c_str(),ev->route.dump().c_str());
+
+
+    REF_getter<epoll_socket_info> nesi=new epoll_socket_info(iInstance,SOCK_STREAM,epoll_socket_info::STREAMTYPE_LISTENING,ev->socketId,tcp_server,ev->route,
+            ev->socketDescription,ev->bufferVerify);
+    nesi->local_name=new P_msockaddr_in(sa);
+    tcp_server->data=new m_opaque(this,nesi);
+
+    passEvent(new socketEvent::NotifyBindAddress(sa,ev->socketDescription,ev->rebind,poppedFrontRoute(ev->route)));
+//    {
+//        M_LOCK(mx.lock);
+//        mx.esies.emplace(nesi->m_stream,nesi);
+//    }
+
+    r = uv_listen((uv_stream_t*)tcp_server, SOMAXCONN, after_listen);
+    if(r)
+        printf("err: %s\n",uv_strerror(r));
+
+    assert(r == 0);
+
+}
+void SocketIO::Service::worker_AddToConnectTCP(const socketEvent::AddToConnectTCP*e)
+{
+    MUTEX_INSPECTOR;
+        uv_connect_t *connect_req=new uv_connect_t;
+        uv_tcp_t *client=new uv_tcp_t();
+//        SOCKET_id sid(e->socketId);
+        REF_getter<epoll_socket_info> nesi=new epoll_socket_info(iInstance,SOCK_STREAM,epoll_socket_info::STREAMTYPE_CONNECTED,e->socketId,client,e->route,e->socketDescription,e->bufferVerify);
+        nesi->request_for_connect=new P_msockaddr_in(e->addr);
+        m_opaque *client_op=new m_opaque(this,nesi);
+
+        uv_tcp_init(uv_default_loop(), client);
+        client->data=client_op;
+        uv_tcp_connect(connect_req, client, (const sockaddr*)&e->addr, after_connect);
+}
+void SocketIO::Service::worker_Write(const socketEvent::Write*e)
+{
+    MUTEX_INSPECTOR;
+    uv_write_t* wr = new uv_write_t;
+    assert(wr != NULL);
+
+    char *buf=(char*)malloc(e->buf.size());
+    memcpy(buf,e->buf.data(),e->buf.size());
+    uv_buf_t* buft=new uv_buf_t;
+
+    *buft = uv_buf_init((char*)buf, e->buf.size());
+    wr->data=buft;
+//    logErr2("uv_write size %d",buft->len);
+    int r = uv_write(wr, (uv_stream_t*)e->esi->m_stream, buft, 1, after_write);
+    if(r)
+        printf("err: %s\n",uv_strerror(r));
+
+    assert(r == 0);
+
+}
+void SocketIO::Service::worker_Close(const socketEvent::Close*e)
+{
+
+    MUTEX_INSPECTOR;
+
+    if(!e->esi->closed())
+    {
+        e->esi->_closed=true;
+
+        uv_shutdown_t* req = new uv_shutdown_t;
+        assert(req != NULL);
+
+        int r = uv_shutdown(req, (uv_stream_t*) e->esi->m_stream, after_shutdown);
+        if(r)
+            printf("err: %s\n",uv_strerror(r));
+
+        assert(r == 0);
+
+    }
+}
+
+void SocketIO::Service::WorkerHandleEvents()
+{
+    MUTEX_INSPECTOR;
+    std::deque<REF_getter<Event::Base> > evs;
+    if(mx.dequeSize!=0)
+    {
+        WLocker lk(mx.lock);
+        evs=mx.workerEvents;
+        mx.workerEvents.clear();
+        mx.dequeSize=0;
+    }
+    for(auto& e:evs)
+    {
+        auto &ID=e->id;
+        if(socketEventEnum::AddToListenTCP==ID)
+            worker_AddToListenTCP((const socketEvent::AddToListenTCP*)e.operator->());
+        else if(socketEventEnum::AddToConnectTCP==ID)
+            worker_AddToConnectTCP((const socketEvent::AddToConnectTCP*)e.operator->());
+        else if(socketEventEnum::Write==ID)
+            worker_Write((const socketEvent::Write*)e.operator->());
+        else if(socketEventEnum::Close==ID)
+            worker_Close((const socketEvent::Close*)e.operator->());
+        else
+            logErr2("unhandled event %s",e->dump().toStyledString().c_str());
+
+    }
+}
+void timer_cb1 (uv_timer_t* timer, int status) {
+    SocketIO::Service* service=(SocketIO::Service*)timer->data;
+    service->WorkerHandleEvents();
+    if(service->m_isTerminating)
+    {
+        uv_timer_stop(timer);
+        uv_stop(uv_default_loop());
+    }
+}
+void SocketIO::Service::worker()
+{
+    MUTEX_INSPECTOR;
+#if defined __MACH__
+    pthread_setname_np("SocketIO");
+#else
+#if !defined _WIN32 && !defined __FreeBSD__
+    pthread_setname_np(pthread_self(),"SocketIO");
+#endif
+#endif
+    sleep(1);
+    {
+        uv_timer_t timer1;
+        uv_timer_init(uv_default_loop(), &timer1);
+        timer1.data=this;
+        uv_timer_start(&timer1, (uv_timer_cb) &timer_cb1, 1, 1);
+        int r = uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+        if(r!=0 && r!=1)
+            printf("err: %s\n",uv_strerror(r));
+    }
 }

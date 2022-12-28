@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.0)
+#cmake_minimum_required (VERSION 2.6)
 
 #project(dfsCore)
 
@@ -19,7 +19,7 @@ add_library(megatron-core STATIC
             commonError.cpp
             configDB.cpp
             epoll_socket_info.cpp
-            event.cpp
+            event_mt.cpp
             eventDeque.cpp
             httpConnection.cpp
             ioBuffer.cpp
@@ -39,7 +39,8 @@ add_library(megatron-core STATIC
             objectHandler.cpp
             route_t.cpp
             socketsContainer.cpp
-            networkMultiplexor.cpp
+	    networkMultiplexor.cpp
+            st_rsa.cpp
             unknown.cpp
             url.cpp
             trashable.cpp

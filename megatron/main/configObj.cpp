@@ -67,7 +67,6 @@ void ConfigObj::printUnusedItems()
 
 void ConfigObj::load_from_file()
 {
-    XTRY;
     M_LOCK(this);
     std::map<std::string,std::string> m;
     try {
@@ -82,7 +81,6 @@ void ConfigObj::load_from_file()
         m_container[i.first]=std::make_pair(i.second,false);
 
     }
-    XPASS;
 }
 void ConfigObj::load_from_buffer(const std::string& buf)
 {

@@ -182,7 +182,7 @@ inBuffer &msockaddr_in::unpack(inBuffer&b)
 #if (_WIN32_WINNT >= 0x0600)
         inet_pton(u.sa6.sin6_family,s.c_str(),&u.sa6.sin6_addr);
 #else
-        throw CommonError("1 SDK version too small");
+        throw CommonError("SDK version too small");
 #endif
 #else
         inet_pton(u.sa6.sin6_family,s.c_str(),&u.sa6.sin6_addr);
@@ -206,7 +206,7 @@ std::string msockaddr_in::getStringAddr() const
 #if (_WIN32_WINNT >= 0x0600)
         inet_ntop(u.sa6.sin6_family, &u.sa6.sin6_addr, str,sizeof(str));
 #else
-        throw CommonError("2 SDK version too small");
+        throw CommonError("SDK version too small");
 #endif
 #else
         inet_ntop(u.sa6.sin6_family, &u.sa6.sin6_addr, str,sizeof(str));
@@ -259,7 +259,7 @@ Json::Value msockaddr_in::jdump() const
 #if (_WIN32_WINNT >= 0x0600)
         inet_ntop(u.sa6.sin6_family, &u.sa6.sin6_addr, str,sizeof(str));
 #else
-        throw CommonError("3 SDK version too small");
+        throw CommonError("SDK version too small");
 #endif
 #else
         inet_ntop(u.sa6.sin6_family, &u.sa6.sin6_addr, str,sizeof(str));
@@ -362,9 +362,7 @@ std::pair<std::set<std::string>,std::set<std::string> > msockaddr_in::getAddrInf
 #if (_WIN32_WINNT >= 0x0600)
         inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
 #else
-        std::string s=inet_ntoa(*((in_addr*)addr));
-        strcpy(ipstr,s.c_str());
-        //throw CommonError("4 SDK version too small");
+        throw CommonError("SDK version too small");
 #endif
 #else
         inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
@@ -436,7 +434,7 @@ void msockaddr_in::init(const std::string& host, unsigned short port)
 #if (_WIN32_WINNT >= 0x0600)
         inet_pton(u.sa6.sin6_family,z.second.begin()->c_str(),&u.sa6.sin6_addr);
 #else
-        throw CommonError("5 SDK version too small");
+        throw CommonError("SDK version too small");
 #endif
 #else
         inet_pton(u.sa6.sin6_family,z.second.begin()->c_str(),&u.sa6.sin6_addr);

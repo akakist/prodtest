@@ -123,7 +123,7 @@ void logErr2(const char* fmt, ...)
         va_list ap,ap1;
         va_start(ap, fmt);
         va_start(ap1, fmt);
-//#ifndef _WIN32
+#ifndef _WIN32
         if(1)
         {
 #ifdef __ANDROID__
@@ -144,9 +144,9 @@ void logErr2(const char* fmt, ...)
             fprintf(stderr,"\n");
 #endif
         }
-//#endif
+#endif
 
-#if !defined __MOBILE__ && !defined _WIN32
+#if !defined __MOBILE__
 
         if(1)
         {
@@ -154,7 +154,6 @@ void logErr2(const char* fmt, ...)
             M_LOCK(__logLock);
             if(fd==nullptr)
             {
-//                printf("getLogName() %s\n",getLogName().c_str());
                 fd=fopen(getLogName().c_str(),"a+b");
             }
             if(fd) {

@@ -20,7 +20,7 @@ bool prodtestWebServer::Service::on_startService(const systemEvent::startService
     MUTEX_INSPECTOR;
 
     sendEvent(ServiceEnum::HTTP,new httpEvent::DoListen(bindAddr,ListenerBase::serviceId));
-    sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(TIMER_PUSH_NOOP,NULL,NULL,1.5,ListenerBase::serviceId));
+//    sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(TIMER_PUSH_NOOP,NULL,NULL,1.5,ListenerBase::serviceId));
 //    sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
 
     return true;
@@ -106,7 +106,7 @@ prodtestWebServer::Service::~Service()
 
 prodtestWebServer::Service::Service(const SERVICE_id& id, const std::string& nm,IInstance* ins):
     UnknownBase(nm),
-    ListenerBuffered(nm,ins->getConfig(),id,ins),
+    ListenerBuffered1Thread(this,nm,ins->getConfig(),id,ins),
     Broadcaster(ins)
 {
     auto ba=ins->getConfig()->get_tcpaddr("bindAddr","0.0.0.0:8088","http listen address");
@@ -159,7 +159,7 @@ std::string index_html=R"ZXC(
 bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestIncoming*e)
 {
 
-    HTTP::Response resp;
+    HTTP::Response resp(getIInstance());
     auto S=check_session(e->req,resp);
     S->esi=e->esi;
 
@@ -169,11 +169,12 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 
 //        for(int i=0;i<10;i++)
         {
-            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
+            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,
+                                                                                                   query_string,0,ListenerBase::serviceId));
         }
         return true;
     }
-    if(0)
+    else
     {
         resp.content="<div>received response </div>";
         resp.makeResponse(e->esi);
@@ -235,10 +236,18 @@ REF_getter<prodtestWebServer::Session> prodtestWebServer::Service::get_session( 
 
 bool prodtestWebServer::Service::on_AddTaskRSP(const prodtestEvent::AddTaskRSP*e)
 {
-    HTTP::Response resp;
-    auto S=get_session(e->session);
-    resp.content="<div>received response "+e->sampleString+"</div>";
-    resp.makeResponse(S->esi);
+    if(e->count==0)
+    {
+        HTTP::Response resp(getIInstance());
+        auto S=get_session(e->session);
+        resp.content="<div>received response "+e->sampleString+"</div>";
+        resp.makeResponse(S->esi);
+    }
+    else
+    {
+        sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(e->session,e->sampleString,e->count-1,ListenerBase::serviceId));
+
+    }
 
     return true;
 }

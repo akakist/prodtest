@@ -15,8 +15,7 @@ public:
     virtual ~ListenerSimple();
 
     /// implementation of base virtuals
-    void listenToEvent(const REF_getter<Event::Base>& e);
-    void listenToEvent(const std::deque<REF_getter<Event::Base> >&);
+    void listenToEvent(const REF_getter<Event::Base>& e) final;
 
 };
 #endif

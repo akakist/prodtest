@@ -39,6 +39,7 @@ void registerErrorDispatcherService(const char*);
 
 void registerObjectProxyModule(const char*);
 void registerOscarModule(const char*);
+void registerOscarSecureModule(const char*);
 void registerRPCService(const char*);
 void registerSocketModule(const char*);
 void registerTimerService(const char*);
@@ -57,10 +58,13 @@ static void registerModules()
         registerObjectProxyModule(pn);
         registerOscarModule(pn);
         registerOscarSecureModule(pn);
+        registerRPCService(pn);
         registerSocketModule(pn);
         registerTimerService(pn);
         registerReferrerClientService(pn);
     }
+    void registerSSL(const char* pn);
+    registerSSL(pn);
 #endif
 }
 #ifdef _WIN32

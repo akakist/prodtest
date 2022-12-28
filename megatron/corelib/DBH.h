@@ -13,8 +13,8 @@
 */
 namespace ServiceEnum
 {
-const SERVICE_id Mysql("Mysql");
-const SERVICE_id Postgres("Postgres");
+    const SERVICE_id Mysql("Mysql");
+    const SERVICE_id Postgres("Postgres");
 
 }
 

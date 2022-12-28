@@ -24,9 +24,7 @@ public:
 
     ConfigObj(const std::string& __filename):m_filename(__filename)
     {
-        XTRY;
         load_from_file();
-        XPASS;
     }
     ConfigObj(const std::string& fake_filename, const std::string& buffer):m_filename(fake_filename)
     {

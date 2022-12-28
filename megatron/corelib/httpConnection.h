@@ -121,6 +121,7 @@ private:
 class Response
 {
 public:
+    Response(IInstance* _ins);
     void makeResponse(const REF_getter<epoll_socket_info>& esi);
     void makeResponsePersistent(const REF_getter<epoll_socket_info>& esi);
     int http_code;
@@ -137,8 +138,10 @@ public:
 
 
     void makePersistent();
-    Response();
+//    Response();
     virtual ~Response();
+
+    IInstance *iInstance;
 };
 };
 

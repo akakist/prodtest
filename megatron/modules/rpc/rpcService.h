@@ -48,12 +48,12 @@ enum
 };
 }
 
-struct Session: public Refcountable, public Mutexable,WebDumpable
+struct Session: public Refcountable, WebDumpable
 {
 
     SOCKET_id socketId;
     std::deque<std::string> m_cache;
-    std::map<int,std::deque<REF_getter<oscarEvent::SendPacket> > > m_OutEventCache;
+    std::deque<REF_getter<refbuffer> >  m_OutEventCacheSendPacket;
     time_t last_time_hit;
     enum currentState {EMPTY,FULL};
     currentState cstate;
@@ -69,7 +69,6 @@ struct Session: public Refcountable, public Mutexable,WebDumpable
 
     Json::Value jdump()
     {
-        M_LOCK(this);
         Json::Value v;
         v["socketId"]=std::to_string(CONTAINER(socketId));
         v["cache_element_count"]=std::to_string((int64_t)m_cache.size());
@@ -80,17 +79,17 @@ struct Session: public Refcountable, public Mutexable,WebDumpable
         }
 
         v["cache_buffer_size"]=std::to_string(csum);
-        v["OutEventCache count"]=std::to_string(m_OutEventCache.size());
+        v["OutEventCache size"]=std::to_string(m_OutEventCacheSendPacket.size());
 
-        int64_t oecSum=0;
-        for(auto &z: m_OutEventCache)
-        {
-            for(auto &x: z.second)
-            {
-                oecSum+=x->buf->size_;
-            }
-        }
-        v["OutEventCache size"]=std::to_string(oecSum);
+//        int64_t oecSum=0;
+//        for(auto &z: m_OutEventCache)
+//        {
+//            for(auto &x: z.second)
+//            {
+//                oecSum+=x->buf->size_;
+//            }
+//        }
+//        v["OutEventCache size"]=std::to_string(oecSum);
 
         v["last_time_hit_dt"]=std::to_string(uint64_t(time(NULL)-last_time_hit));
         v["m_connectionEstablished"]=m_connectionEstablished;
@@ -189,6 +188,7 @@ class Service:
     SERVICE_id myOscar;
     const real m_iterateTimeout;
 
+    ListenerBase* myOscarListener;
     struct _shared_Addr: public Mutexable
     {
         _shared_Addr():m_networkInitialized(false) {}
@@ -239,15 +239,9 @@ public:
 
     void doSend(const REF_getter<Session> & S);
     void doSendAll();
-    void addSendPacket(const int& channel, const REF_getter<Session>&S, const REF_getter<oscarEvent::SendPacket>&P);
+    void addSendPacket(const REF_getter<Session>&S, const REF_getter<refbuffer> &P);
     void cleanSocket(const SOCKET_id& sid);
 
-    struct _mx: public Mutexable
-    {
-        int64_t totalSendBufferSize;
-        _mx():totalSendBufferSize(0) {}
-    };
-    _mx mx;
     IInstance* iInstance;
     bool m_isTerminating;
 

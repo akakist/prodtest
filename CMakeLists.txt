@@ -23,6 +23,7 @@ include_directories(megatron/corelib
 			megatron/main 
 			megatron/local  
 			megatron/lib/jsoncpp-0.5.0/include 
+			/usr/local/Cellar/openssl@3/3.0.7/include
 
 		#	/usr/local/include 
 			megatron  .  svs megatron/lib megatron/lib/sqlite3

@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #ifndef _WIN32
 #include <unistd.h>
+#include <version_mega.h>
 
 #endif
-#include <version_mega.h>
 #include "telnetService.h"
 #include "telnet.h"
 #include "telnet_keys.h"
 #include "mutexInspector.h"
+#include "Events/System/Net/socket/Write.h"
 extern "C" {
 #include <regex.h>
 }
@@ -209,11 +210,15 @@ bool Telnet::Service::on_Accepted(const socketEvent::Accepted* evt)
     REF_getter<Telnet::Session> c=new Telnet::Session(cmdEntries.root(),evt->esi);
     stuff->insert(evt->esi->m_id,c);
 
-    evt->esi->write_("\377\375\042\377\373\001"+vt100::insert_mode());
+//    evt->esi->write_();
+    sendEvent(ServiceEnum::Socket, new socketEvent::Write(evt->esi,"\377\375\042\377\373\001"+vt100::insert_mode()));
+
 
     char s[100];
     snprintf(s,sizeof(s),"%c%c%c",IAC,DO,TELOPT_NAWS);
-    evt->esi->write_(s);
+//    evt->esi->write_(s);
+    sendEvent(ServiceEnum::Socket, new socketEvent::Write(evt->esi,s));
+
     prompt(c,evt->esi);
     XPASS;
     return true;
@@ -744,14 +749,21 @@ bool Telnet::Service::on_StreamRead(const socketEvent::StreamRead* evt)
         W->insertMode=!W->insertMode;
         mode=W->insertMode;
 
-        if(mode)  esi->write_(vt100::insert_mode());
-        else  esi->write_(vt100::replace_mode());
+        if(mode)
+            sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,vt100::insert_mode()));
+//            esi->write_(vt100::insert_mode());
+        else
+            sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,vt100::replace_mode()));
+
+            //esi->write_(vt100::replace_mode());
     }
     else if(out==TKEY_BS1 || out==TKEY_BS2)
     {
         if(W->on_TKEY_BS())
         {
-            esi->write_(vt100::cursor_back()+vt100::erase());
+//            esi->write_(vt100::cursor_back()+vt100::erase());
+            sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,vt100::cursor_back()+vt100::erase()));
+
         }
     }
     else if(out==TKEY_DELETE)
@@ -770,7 +782,8 @@ bool Telnet::Service::on_StreamRead(const socketEvent::StreamRead* evt)
         }
         if(ok)
         {
-            esi->write_(vt100::erase());
+//            esi->write_(vt100::erase());
+            sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,vt100::erase()));
         }
 
     }
@@ -798,11 +811,14 @@ bool Telnet::Service::on_StreamRead(const socketEvent::StreamRead* evt)
             if(cp%W->width==0 && cp!=0)
             {
 
-                esi->write_(vt100::cursor_up()+vt100::cursor_forward(W->width-1));
+//                esi->write_(vt100::cursor_up()+vt100::cursor_forward(W->width-1));
+                sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,vt100::cursor_up()+vt100::cursor_forward(W->width-1)));
+
             }
             else
             {
-                esi->write_(out);
+//                esi->write_(out);
+                sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,out));
             }
         }
 
@@ -824,10 +840,16 @@ bool Telnet::Service::on_StreamRead(const socketEvent::StreamRead* evt)
         if(ok)
         {
             if(cp%w==0)
+            {
 
-                esi->write_(vt100::cursor_down()+vt100::cursor_back(w-1));
+//                esi->write_(vt100::cursor_down()+vt100::cursor_back(w-1));
+                sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,vt100::cursor_down()+vt100::cursor_back(w-1)));
+            }
             else
-                esi->write_(out);
+            {
+                sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,out));
+//                esi->write_(out);
+            }
         }
     }
     else if(out==TKEY_UP || out==TKEY_DOWN)
@@ -1479,12 +1501,12 @@ bool Telnet::Service::on_NotifyBindAddress(const socketEvent::NotifyBindAddress*
     //if(iInstance->no_bind())
     //  throw CommonError("Telnet::Service::on_NotifyBindAddress %s",_DMI().c_str());
 
-    socklen_t len=e->esi->local_name.maxAddrLen();
-    if(getsockname(CONTAINER(e->esi->get_fd()),e->esi->local_name.addr(),&len))
-    {
-        logErr2("getsockname: errno %d %s",errno,strerror(errno));
-        return true;
-    }
+//    socklen_t len=e->esi->local_name.maxAddrLen();
+//    if(getsockname(CONTAINER(e->esi->get_fd()),e->esi->local_name.addr(),&len))
+//    {
+//        logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//        return true;
+//    }
     return true;
 }
 Json::Value Telnet::CommandEntries::jdump()

@@ -32,9 +32,6 @@ public:
 
     inBuffer(const  REF_getter<refbuffer>&); // construct from string
 
-    size_t getPos() {
-        return out_pos;
-    }
     /// full size buffer
     size_t size() const;
 

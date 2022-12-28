@@ -5,7 +5,7 @@
 
 
 #include "logging.h"
-#include "listenerBuffered.h"
+#include "listenerBuffered1Thread.h"
 #include "DBH.h"
 #include "USER_id.h"
 #include "IProgress.h"
@@ -31,7 +31,8 @@ enum TIMERS
 };
 namespace prodtestWebServer
 {
-    class Session: public Refcountable
+    class Session:
+            public Refcountable
     {
     public:
         std::string sessionId;
@@ -56,7 +57,7 @@ namespace prodtestWebServer
 
     class Service:
         public UnknownBase,
-        public ListenerBuffered,
+        public ListenerBuffered1Thread,
         public Broadcaster
     {
         bool on_startService(const systemEvent::startService*);
@@ -64,7 +65,7 @@ namespace prodtestWebServer
 
 
 
-
+    public:
         Service(const SERVICE_id&, const std::string&  nm, IInstance *ins);
         ~Service();
 
@@ -77,7 +78,7 @@ namespace prodtestWebServer
     public:
         void deinit()
         {
-            ListenerBuffered::deinit();
+            ListenerBuffered1Thread::deinit();
         }
 
         static UnknownBase* construct(const SERVICE_id& id, const std::string&  nm,IInstance* obj)

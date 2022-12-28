@@ -87,23 +87,13 @@ bool RPC::Service::on_Connected(const oscarEvent::Connected* E)
     REF_getter<Session> S(NULL);
     msockaddr_in addr;
     bool need_send_connected=false;
-    msockaddr_in sa;
-    socklen_t sl=sa.maxAddrLen();
-    if(getsockname(CONTAINER(E->esi->get_fd()), sa.addr(),&sl))
-    {
-        logErr2("getsockname: errno %d %s",errno,strerror(errno));
-    }
-    else
-    {
-    }
     std::set<route_t> subscribers;
     {
 //        M_LOCK(sessions->m_lock);
         auto it=sessions->all.m_socketId2session.find(E->esi->m_id);
         if(it==sessions->all.m_socketId2session.end())
         {
-            DBG(logErr2("1cannot find RPC session on connected"));
-            logErr2("2cannot find RPC session on connected");
+            throw CommonError("2cannot find RPC session on connected");
             return true;
         }
         S=it->second;
@@ -290,22 +280,15 @@ bool RPC::Service::on_PacketOnConnector(const oscarEvent::PacketOnConnector* E)
 
 }
 
-void RPC::Service::addSendPacket(const int& channel, const REF_getter<Session>&S, const REF_getter<oscarEvent::SendPacket>&P)
+void RPC::Service::addSendPacket(const REF_getter<Session>&S, const REF_getter<refbuffer>&P)
 {
     MUTEX_INSPECTOR;
     S_LOG("addSendPacket");
     S->update_last_time_hit();
     {
 
-        M_LOCK(S.operator ->());
-        if(S->bufferSize>10*1000*1000)
-            throw CommonError("buffer too large");
-        S->m_OutEventCache[channel].push_back(P);
-        S->bufferSize+=P->buf->size_;
-        {
-            M_LOCK (mx);
-            mx.totalSendBufferSize+=P->buf->size_;
-        }
+        S->m_OutEventCacheSendPacket.push_back(P);
+        S->bufferSize+=P->size_;
     }
     if(S->m_connectionEstablished)
     {
@@ -340,7 +323,7 @@ bool RPC::Service::on_PassPacket(const rpcEvent::PassPacket* E)
     }
     {
         S->update_last_time_hit();
-        addSendPacket(e->e->rpcChannel,S,new oscarEvent::SendPacket(S->esi->m_id,o.asString(),serviceId));
+        addSendPacket(S,o.asString());
     }
 
     XPASS;
@@ -360,18 +343,18 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
     }
     for(auto &i:m_bindAddr_reserve)
     {
-        auto addr=i;
+//        auto addr=i;
         if(e->rebind)
         {
             sessions->clear();
         }
-        socklen_t len=addr.addrLen();
+//        socklen_t len=addr.addrLen();
 
-        if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
-        {
-            logErr2("getsockname: errno %d %s",errno,strerror(errno));
-            return true;
-        }
+//        if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
+//        {
+//            logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//            return true;
+//        }
 //        DBG(logErr2("--------GETSOCKNAME m_bindAddr_reserve retursn %s",addr.dump().c_str()));
 
 
@@ -387,24 +370,24 @@ bool RPC::Service::on_NotifyBindAddress(const oscarEvent::NotifyBindAddress*e)
     for(auto &i:m_bindAddr_main)
     {
         const msockaddr_in &addr=i;
-        if(e->socketDescription=="RPC_UL")
+        if((std::string)e->socketDescription=="RPC_UL")
         {
             if(e->rebind)
             {
                 sessions->clear();
             }
-            socklen_t len=addr.maxAddrLen();
+//            socklen_t len=addr.maxAddrLen();
 
-            if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
-            {
-                logErr2("getsockname: errno %d %s",errno,strerror(errno));
-                return true;
-            }
+//            if(getsockname(CONTAINER(e->esi->get_fd()),addr.addr(),&len))
+//            {
+//                logErr2("getsockname: errno %d %s",errno,strerror(errno));
+//                return true;
+//            }
 
-            DBG(logErr2("--------GETSOCKNAME m_bindAddr_main retursn %s",addr.dump().c_str()));
+//            DBG(logErr2("--------GETSOCKNAME m_bindAddr_main retursn %s",addr.dump().c_str()));
 
 
-            DBG(logErr2("---------------e->sockType %s",e->socketDescription));
+//            DBG(logErr2("---------------e->sockType %s",e->socketDescription));
             {
                 M_LOCK(sharedAddr);
                 sharedAddr.m_networkInitialized=true;
@@ -424,7 +407,7 @@ bool RPC::Service::on_startService(const systemEvent::startService* )
 //    {
 //        sendEvent(ServiceEnum::WebHandler, new webHandlerEvent::RegisterHandler("RPC","RPC",ListenerBase::serviceId));
 //    }
-
+    myOscarListener=dynamic_cast<ListenerBase*>(iInstance->getServiceOrCreate(Service::myOscar));
 
     sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(timers::CONNECTION_ACTIVITY,NULL,NULL,m_iterateTimeout,ListenerBase::serviceId));
 
@@ -442,13 +425,13 @@ bool RPC::Service::on_startService(const systemEvent::startService* )
             for(auto &item:m_bindAddr_main)
             {
                 SOCKET_id newid=iUtils->getSocketId();
-                sendEvent(myOscar,new oscarEvent::AddToListenTCP(newid,item,"RPC_UL",ListenerBase::serviceId));
+                sendEvent(myOscarListener,new oscarEvent::AddToListenTCP(newid,item,"RPC_UL",ListenerBase::serviceId));
             }
 
             for(auto &item:m_bindAddr_reserve)
             {
                 SOCKET_id newid=iUtils->getSocketId();
-                sendEvent(myOscar,new oscarEvent::AddToListenTCP(newid,item,"RPC_DL",ListenerBase::serviceId));
+                sendEvent(myOscarListener,new oscarEvent::AddToListenTCP(newid,item,"RPC_DL",ListenerBase::serviceId));
             }
         }
     }
@@ -461,14 +444,6 @@ bool RPC::Service::on_Accepted(const oscarEvent::Accepted* E)
     MUTEX_INSPECTOR;
     S_LOG("on_Accepted");
 
-    msockaddr_in sa;
-    socklen_t sl=sa.maxAddrLen();
-    if(getsockname(CONTAINER(E->esi->get_fd()), sa.addr(),&sl))
-    {
-        logErr2("getsockname: errno %d %s",errno,strerror(errno));
-    }
-
-    DBG(logErr2("accepted socket %d",CONTAINER(E->esi->get_fd())));
     std::set<route_t> subscribers;
     {
         const oscarEvent::Accepted *e=E;
@@ -562,7 +537,7 @@ bool RPC::Service::on_SendPacket(const rpcEvent::SendPacket* E)
         sessions->all.m_socketId2session.erase(sockId);
         sessions->all.m_socketId2session.insert(std::make_pair(sockId,S));
         {
-            sendEvent(myOscar,new oscarEvent::Connect(sockId,addressTo,"RPC",ListenerBase::serviceId));
+            sendEvent(myOscarListener,new oscarEvent::Connect(sockId,addressTo,"RPC",ListenerBase::serviceId));
         }
         XPASS;
 
@@ -592,7 +567,7 @@ bool RPC::Service::on_SendPacket(const rpcEvent::SendPacket* E)
         iUtils->packEvent(o,E->ev);
 
 
-        addSendPacket(E->ev->rpcChannel,S,new oscarEvent::SendPacket(sockId,o.asString(),ListenerBase::serviceId));
+        addSendPacket(S,o.asString());
         XPASS;
     }
     XPASS;
@@ -609,29 +584,25 @@ void RPC::Service::doSend(const REF_getter<Session> & S)
     {
         if(S->m_connectionEstablished)
         {
+            if(!S->esi.valid())
+                throw CommonError("if(!S->esi.valid())");
             S->cstate=Session::FULL;
             size_t sum=0;
             {
-                M_LOCK(S.operator ->());
-                while(S->m_OutEventCache.size())
                 {
-                    auto i=S->m_OutEventCache.begin();
-                    std::deque<REF_getter<oscarEvent::SendPacket> > & d=i->second;
+//                    auto i=S->m_OutEventCacheSendPacket.begin();
+                    auto & d=S->m_OutEventCacheSendPacket;
                     while(d.size())
                     {
 
-                        REF_getter<oscarEvent::SendPacket> p=d[0];
+                        auto p=d[0];
                         d.pop_front();
-                        S->bufferSize-=p->buf->size_;
-                        {
-                            M_LOCK(mx);
-                            mx.totalSendBufferSize-=p->buf->size_;
-                        }
-                        sum+=p->buf->size_;
-                        sendEvent(myOscar,p.operator ->());
+                        S->bufferSize-=p->size_;
+                        sum+=p->size_;
+                        sendEvent(myOscarListener,new oscarEvent::SendPacket(S->esi,p,ListenerBase::serviceId));
 
                     }
-                    S->m_OutEventCache.erase(i->first);
+//                    S->m_OutEventCache.erase(i->first);
 
                 }
                 S->cstate=Session::EMPTY;
@@ -653,6 +624,7 @@ void RPC::Service::doSend(const REF_getter<Session> & S)
 
 bool RPC::Service::on_NotifyOutBufferEmpty(const oscarEvent::NotifyOutBufferEmpty* e)
 {
+
 
     MUTEX_INSPECTOR;
 
@@ -747,7 +719,7 @@ bool RPC::Service::on_TickAlarm(const timerEvent::TickAlarm*e)
             {
                 if(now-S->last_time_hit>m_connectionActivityTimeout)
                 {
-                    DBG(logErr2("close socket S->esi-> %s",esi->remote_name.dump().c_str()));
+                    DBG(logErr2("close socket S->esi-> %s",esi->remote_name->addr.dump().c_str()));
                     esi->close("rpc close due timer inactivity");
                 }
             }
@@ -850,7 +822,7 @@ bool RPC::Service::on_ConnectFailed(const oscarEvent::ConnectFailed*e)
         subscribers=sessions->all.m_subscribers;
     }
     sessions->all.m_socketId2session.erase(e->esi->m_id);
-    sessions->connector.m_sa2socketId.erase(e->esi->remote_name);
+    sessions->connector.m_sa2socketId.erase(e->esi->remote_name->addr);
     sessions->connector.m_socketId2sa.erase(e->esi->m_id);
 
     for(auto &i:subscribers)
@@ -1041,7 +1013,7 @@ bool RPC::Service::on_RequestIncoming(const webHandlerEvent::RequestIncoming* e)
 {
 
     MUTEX_INSPECTOR;
-    HTTP::Response cc;
+    HTTP::Response cc(iInstance);
     cc.content+="<h1>RPC report</h1><p>";
 
     Json::Value v=jdump();
@@ -1055,10 +1027,6 @@ Json::Value RPC::Service::jdump()
 {
     MUTEX_INSPECTOR;
     Json::Value j;
-    {
-        M_LOCK(mx);
-        j["totalSendBufferSize"]=std::to_string(mx.totalSendBufferSize);
-    }
     j["sessions"].append(sessions->getWebDumpableLink("sessions"));
     return j;
 

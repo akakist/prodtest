@@ -2,9 +2,10 @@
 #include "oscarService.h"
 
 #include "bufferVerify.h"
-#include "event.h"
+#include "event_mt.h"
 #include <Events/System/Net/socket/AddToConnectTCP.h>
 #include <Events/System/Net/socket/AddToListenTCP.h>
+#include <Events/System/Net/socket/Write.h>
 #include <Events/System/Net/oscar/Accepted.h>
 #include <Events/System/Net/oscar/ConnectFailed.h>
 #include <Events/System/Net/oscar/Disaccepted.h>
@@ -21,9 +22,10 @@
 
 Oscar::Service::Service(const SERVICE_id &svs, const std::string&  nm,IInstance* ifa):
     UnknownBase(nm),
-    ListenerBuffered(nm,ifa->getConfig(),svs,ifa),
+    ListenerBuffered1Thread(this,nm,ifa->getConfig(),svs,ifa),
     Broadcaster(ifa),
-    m_maxPacketSize(32*1024*1024),__m_users(new __users)
+    m_maxPacketSize(32*1024*1024),__m_users(new __users),
+    iInstance(ifa)
 {
     try
     {
@@ -48,28 +50,24 @@ Oscar::Service::~Service()
 bool Oscar::Service::on_Connect(const oscarEvent::Connect* e)
 {
     MUTEX_INSPECTOR;
-    sendEvent(ServiceEnum::Socket,new socketEvent::AddToConnectTCP(e->socketId,e->addr,e->socketDescription,bufferVerify,e->route));
+    logErr2("Oscar::Service AddToConnectTCP %s",e->addr.dump().c_str());
+    sendEvent(socketListener,new socketEvent::AddToConnectTCP(e->socketId,e->addr,e->socketDescription,bufferVerify,e->route));
     return true;
 }
 bool Oscar::Service::on_SendPacket(const oscarEvent::SendPacket* e)
 {
     MUTEX_INSPECTOR;
-    REF_getter<epoll_socket_info> esi=__m_users->getOrNull(e->socketId);
-    if(esi.valid())
+//    REF_getter<epoll_socket_info> esi=__m_users->getOrNull(e->socketId);
+//    if(esi.valid())
     {
-        sendPacketPlain(Oscar::SB_SINGLEPACKET,esi,e->buf);
-    }
-    else
-    {
-        throw CommonError("!if(esi.valid()) %s %d",__FILE__,__LINE__);
-        logErr2("!esi valid %s %d",__FILE__,__LINE__);
+        sendPacketPlain(Oscar::SB_SINGLEPACKET,e->esi,e->buf);
     }
     return true;
 }
 bool Oscar::Service::on_AddToListenTCP(const oscarEvent::AddToListenTCP* e)
 {
     MUTEX_INSPECTOR;
-    sendEvent(ServiceEnum::Socket,new socketEvent::AddToListenTCP(e->socketId,e->addr,e->socketDescription,false,bufferVerify, e->route));
+    sendEvent(socketListener,new socketEvent::AddToListenTCP(e->socketId,e->addr,e->socketDescription,false,bufferVerify, e->route));
     return true;
 }
 bool Oscar::Service::on_Accepted(const socketEvent::Accepted*e)
@@ -85,6 +83,7 @@ bool Oscar::Service::on_Accepted(const socketEvent::Accepted*e)
 }
 bool Oscar::Service::on_StreamRead(const socketEvent::StreamRead* evt)
 {
+
     MUTEX_INSPECTOR;
     try
     {
@@ -104,9 +103,7 @@ bool Oscar::Service::on_StreamRead(const socketEvent::StreamRead* evt)
 
                         start_byte=b.get_8_nothrow(success);
 
-
                         if (!success) return true;
-
                         {
                             XTRY;
                             auto len= static_cast<size_t>(b.get_PN_nothrow(success));
@@ -244,7 +241,7 @@ bool Oscar::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferE
 bool Oscar::Service::on_NotifyBindAddress(const socketEvent::NotifyBindAddress*e)
 {
     MUTEX_INSPECTOR;
-    passEvent(new oscarEvent::NotifyBindAddress(e->esi,e->socketDescription,e->rebind,e->route));
+    passEvent(new oscarEvent::NotifyBindAddress(e->addr,e->socketDescription,e->rebind,e->route));
     return true;
 }
 void Oscar::Service::sendPacketPlain(const Oscar::StartByte& startByte, const REF_getter<epoll_socket_info>& esi, const outBuffer &o)
@@ -254,7 +251,7 @@ void Oscar::Service::sendPacketPlain(const Oscar::StartByte& startByte, const RE
     outBuffer O2;
     O2.put_8(startByte);
     O2<<o.asString();
-    esi->write_(O2.asString()->asString());
+    sendEvent(socketListener, new socketEvent::Write(esi,O2.asString()->asString()));
     XPASS;
 }
 void Oscar::Service::sendPacketPlain(const Oscar::StartByte& startByte, const REF_getter<epoll_socket_info>& esi, const REF_getter<refbuffer> &o)
@@ -264,11 +261,12 @@ void Oscar::Service::sendPacketPlain(const Oscar::StartByte& startByte, const RE
     outBuffer O2;
     O2.put_8(startByte);
     O2<<o;
-    esi->write_(O2.asString()->asString());
+    sendEvent(socketListener, new socketEvent::Write(esi,O2.asString()->asString()));
     XPASS;
 }
 bool Oscar::Service::on_startService(const systemEvent::startService*)
 {
+    socketListener=dynamic_cast<ListenerBase*>(iInstance->getServiceOrCreate(ServiceEnum::Socket));
     return true;
 }
 
@@ -291,9 +289,8 @@ void Oscar::__users::user_insert(const REF_getter<epoll_socket_info>& esi, const
 
     add(esi);
     {
-        M_LOCK(m_lock);
-        if(m_isServers.count(esi->m_id)) throw CommonError(" 1 if(m_isServers.count(esi->m_id)) "+_DMI());
-//        logErr2("m_isServers[esi->m_id]=isServer; %s",_DMI().c_str());
+        WLocker l(m_lock);
+        if(m_isServers.count(esi->m_id)) throw CommonError("if(m_isServers.count(esi->m_id)) "+_DMI());
         m_isServers[esi->m_id]=isServer;
     }
 }
@@ -304,7 +301,7 @@ Json::Value Oscar::__users::jdump()
 //    v["SocketsContainerBase"]=SocketsContainerBase::jdump();
     std::map<SOCKET_id,bool > m;
     {
-        M_LOCK(m_lock);
+        RLocker lk(m_lock);
         m=m_isServers;
     }
     for(auto i=m.begin(); i!=m.end(); i++)
@@ -317,17 +314,19 @@ Json::Value Oscar::__users::jdump()
 void Oscar::__users::on_delete(const REF_getter<epoll_socket_info>&esi, const std::string& )
 {
     MUTEX_INSPECTOR;
-    M_LOCK(m_lock);
-    if(!m_isServers.count(esi->m_id)) throw CommonError("2 if(m_isServers.count(esi->m_id)) "+_DMI());
-    m_isServers.erase(esi->m_id);
+    WLocker lk(m_lock);
+    auto it=m_isServers.find(esi->m_id);
+    if(it==m_isServers.end()) throw CommonError("if(m_isServers.count(esi->m_id)) "+_DMI());
+    m_isServers.erase(it);
 }
 
 bool Oscar::__users::isServer(const SOCKET_id &sid)
 {
     MUTEX_INSPECTOR;
-    M_LOCK(m_lock);
-    if(!m_isServers.count(sid)) throw CommonError("3 if(m_isServers.count(esi->m_id)) %s %d",__FILE__,__LINE__);
-    return m_isServers[sid];
+    RLocker lk(m_lock);
+    auto it=m_isServers.find(sid);
+    if(it==m_isServers.end()) throw CommonError("if(m_isServers.count(esi->m_id)) %s %d",__FILE__,__LINE__);
+    return it->second;
 
 }
 

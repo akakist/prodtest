@@ -2,6 +2,7 @@
 #define ____EVT_SOCKET_OPEN__H___WR
 
 #include "_________socketEvent.h"
+#include "event_mt.h"
 namespace socketEvent
 {
     class Write: public Event::NoPacked
@@ -11,15 +12,15 @@ namespace socketEvent
         {
             return NULL;
         }
-        Write(const SOCKET_id & _socketId,const std::string& _buf)
+        Write(const REF_getter<epoll_socket_info> & _esi,const std::string& _buf)
             :NoPacked(socketEventEnum::Write),
-             socketId(_socketId),buf(_buf)
+             esi(_esi),buf(_buf)
         {
         }
         void jdump(Json::Value &) const
         {
         }
-        const SOCKET_id socketId;
+        const REF_getter<epoll_socket_info> esi;
         const std::string buf;
     };
 }

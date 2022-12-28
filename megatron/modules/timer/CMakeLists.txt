@@ -1,9 +1,9 @@
-cmake_minimum_required (VERSION 3.0)
+#cmake_minimum_required (VERSION 2.6)
 
 add_library(core-timer SHARED
-            timer.cpp
-            timerService.cpp
-           )
+    timer.cpp
+    timerService.cpp
+)
 
 target_link_libraries(core-timer megatron-core pthread)
 

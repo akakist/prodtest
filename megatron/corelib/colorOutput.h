@@ -1,7 +1,7 @@
 #ifndef ____COLOR_OUT__H
 #define ____COLOR_OUT__H
 
-#if !defined(__MOBILE__) && !defined(_WIN32)
+#ifndef __MOBILE__
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_YELLOW  "\x1b[33m"

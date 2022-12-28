@@ -1,7 +1,8 @@
 #ifndef ______OSCAR_EVENT___H7
 #define ______OSCAR_EVENT___H7
 #include "___oscarEvent.h"
-
+#include "msockaddr_in.h"
+#include "event_mt.h"
 namespace oscarEvent
 {
     class NotifyBindAddress: public Event::NoPacked
@@ -11,15 +12,15 @@ namespace oscarEvent
         {
             return NULL;
         }
-        NotifyBindAddress(const REF_getter<epoll_socket_info> & __S,const char* _socketDescription,bool _rebind, const route_t&r)
+        NotifyBindAddress(const msockaddr_in & __S,const char* _socketDescription,bool _rebind, const route_t&r)
             :NoPacked(oscarEventEnum::NotifyBindAddress,r),
-             esi(__S),socketDescription(_socketDescription),rebind(_rebind)
+             addr(__S),socketDescription(_socketDescription),rebind(_rebind)
         {
         }
         void jdump(Json::Value &) const
         {
         }
-        const REF_getter<epoll_socket_info>  esi;
+        const msockaddr_in  addr;
         const char* socketDescription;
         const bool rebind;
     };

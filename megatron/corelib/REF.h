@@ -46,13 +46,7 @@ public:
     {
         if (___ptr)
         {
-#ifdef PRIVATEMUTEX
-//            M_LOCK (___ptr->__privateMuteX);
-#endif
-//            std::atomic_fe_ ___ptr->__Ref_Count.++;
             std::atomic_fetch_add(&___ptr->__Ref_Count,1);
-
-
         }
     }
     void decrefcount ()
@@ -61,15 +55,9 @@ public:
         {
             if (___ptr)
             {
-#ifdef PRIVATEMUTEX
-//                M_LOCK (___ptr->__privateMuteX);
-#endif
-//                int refc=std::atomic_load(___ptr->__Ref_Count);
                 auto prev=std::atomic_fetch_sub(&___ptr->__Ref_Count,1);
                 if (prev==1)
                     need_destroy = true;
-//                if (___ptr->__Ref_Count > 0)
-//                    ___ptr->__Ref_Count--;
             }
             if (need_destroy)
             {
