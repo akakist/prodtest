@@ -1,6 +1,10 @@
 #ifndef ______E_POLL_H
 #define ______E_POLL_H
 #include "pconfig.h"
+#ifdef __linux__
+#include <sys/epoll.h>
+#endif
+
 #if defined(WIN32)
 #define HAVE_SELECT
 #elif defined (__MACH__) || defined(__IOS__) || defined(__FreeBSD__)
@@ -14,11 +18,15 @@ struct e_poll
 {
     e_poll()
         :
-        m_epollFd(-1)
+        m_epollFd(-1),size(10),timeout_millisec(10)
     {
+        m_epollFd=epoll_create(100);
     }
     int m_epollFd;
 
+    // conf vars
+    int size;
+    int timeout_millisec;
 };
 #endif
 

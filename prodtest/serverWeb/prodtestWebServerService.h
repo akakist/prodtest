@@ -36,17 +36,13 @@ namespace prodtestWebServer
     {
     public:
         std::string sessionId;
-        time_t lastTimeSessionHit;
-        time_t lastTimeImgCachedHit;
-        bool imgProcessed;
         REF_getter<epoll_socket_info> esi;
+        REF_getter<HTTP::Request> req;
 
 
-        Session(const std::string& sid): sessionId(sid),
-            lastTimeSessionHit(time(nullptr)),
-            lastTimeImgCachedHit(time(nullptr)),
-            imgProcessed(false),
-            esi(nullptr)
+        Session(const std::string& sid, const REF_getter<HTTP::Request> &_req,const REF_getter<epoll_socket_info> &_esi): sessionId(sid),
+            req(_req),
+            esi(_esi)
         {
         }
         ~Session() {}
@@ -86,7 +82,7 @@ namespace prodtestWebServer
             return new Service(id,nm,obj);
         }
 
-        REF_getter<prodtestWebServer::Session> check_session( const REF_getter<HTTP::Request>& req, HTTP::Response& resp);
+        REF_getter<prodtestWebServer::Session> check_session(const REF_getter<HTTP::Request>& req, HTTP::Response& resp, const REF_getter<epoll_socket_info> &_esi);
         REF_getter<prodtestWebServer::Session> get_session( const std::string& session_id);
 
         std::map<std::string,REF_getter<Session> > sessions;

@@ -20,7 +20,7 @@ bool prodtestWebServer::Service::on_startService(const systemEvent::startService
     MUTEX_INSPECTOR;
 
     sendEvent(ServiceEnum::HTTP,new httpEvent::DoListen(bindAddr,ListenerBase::serviceId));
-    sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(TIMER_PUSH_NOOP,NULL,NULL,1.5,ListenerBase::serviceId));
+//    sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(TIMER_PUSH_NOOP,NULL,NULL,1.5,ListenerBase::serviceId));
 //    sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
 
     return true;
@@ -160,7 +160,11 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 {
 
     HTTP::Response resp(getIInstance());
-    auto S=check_session(e->req,resp);
+    auto S=check_session(e->req,resp,e->esi);
+//    for(auto &z: e->req->headers)
+//    {
+//        printf("%s: %s\n",z.first.c_str(),z.second.c_str());
+//    }
     S->esi=e->esi;
 
     if(1){
@@ -169,14 +173,26 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 
 //        for(int i=0;i<10;i++)
         {
-            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,query_string,1,ListenerBase::serviceId));
+            sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(S->sessionId,
+                                                                                                   query_string,0,ListenerBase::serviceId));
         }
         return true;
     }
     else
     {
+        bool keepAlive=e->req->headers["CONNECTION"]=="Keep-Alive";
+        keepAlive=true;
+        if(keepAlive)
+        {
+            resp.http_header_out["Connection"]="Keep-Alive";
+            resp.http_header_out["Keep-Alive"]="timeout=5, max=100000";
+        }
         resp.content="<div>received response </div>";
-        resp.makeResponse(e->esi);
+//        logErr2("resp:%s",resp.build_html_response().c_str());
+        if(keepAlive)
+            resp.makeResponsePersistent(e->esi);
+        else
+            resp.makeResponse(e->esi);
 
     }
 
@@ -184,36 +200,16 @@ bool prodtestWebServer::Service::on_RequestIncoming(const httpEvent::RequestInco
 }
 
 
-
-REF_getter<prodtestWebServer::Session> prodtestWebServer::Service::check_session( const REF_getter<HTTP::Request>& req, HTTP::Response& resp)
+static int cnt2;
+REF_getter<prodtestWebServer::Session> prodtestWebServer::Service::check_session( const REF_getter<HTTP::Request>& req, HTTP::Response& resp, const REF_getter<epoll_socket_info>& esi)
 {
 
-    std::string session_id;
-    if(!req->in_cookies.count(SESSION_ID))
+    auto session_id=std::to_string(cnt2++);
+    REF_getter<Session>S=new Session(session_id,req,esi);
     {
-            for(int i=0;i<20;i++)
-            {
-                session_id+=char(rand());
-            }
-        resp.out_cookies[SESSION_ID]=session_id;
-//        logErr2("insert session cookie %s",iUtils->bin2hex(session_id).c_str());
-    }
-    else
-    {
-
-        session_id=req->in_cookies[SESSION_ID];
-    }
-    REF_getter<Session> S(nullptr);
-    auto it=sessions.find(session_id);
-    if(it!=sessions.end())
-        S=it->second;
-    else
-    {
-        S=new Session(session_id);
 //        logErr2("insert into sessions %s",iUtils->bin2hex(session_id).c_str());
         sessions.insert(std::make_pair(session_id,S));
     }
-    S->lastTimeSessionHit=time(nullptr);
     return S;
 
 }
@@ -228,17 +224,36 @@ REF_getter<prodtestWebServer::Session> prodtestWebServer::Service::get_session( 
     {
         throw CommonError("session not found %s",session_id.c_str());
     }
-    S->lastTimeSessionHit=time(nullptr);
     return S;
 
 }
 
 bool prodtestWebServer::Service::on_AddTaskRSP(const prodtestEvent::AddTaskRSP*e)
 {
-    HTTP::Response resp(getIInstance());
-    auto S=get_session(e->session);
-    resp.content="<div>received response "+e->sampleString+"</div>";
-    resp.makeResponse(S->esi);
+    if(e->count==0)
+    {
+        HTTP::Response resp(getIInstance());
+        auto S=get_session(e->session);
+        bool keepAlive=S->req->headers["CONNECTION"]=="Keep-Alive";
+        keepAlive=true;
+        if(keepAlive)
+        {
+            resp.http_header_out["Connection"]="Keep-Alive";
+            resp.http_header_out["Keep-Alive"]="timeout=5, max=100000";
+        }
+        resp.content="<div>received response </div>";
+//        logErr2("resp:%s",resp.build_html_response().c_str());
+        if(keepAlive)
+            resp.makeResponsePersistent(S->esi);
+        else
+            resp.makeResponse(S->esi);
+
+    }
+    else
+    {
+        sendEvent(prodtestServerAddr,ServiceEnum::prodtestServer,new prodtestEvent::AddTaskREQ(e->session,e->sampleString,e->count-1,ListenerBase::serviceId));
+
+    }
 
     return true;
 }

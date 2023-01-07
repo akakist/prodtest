@@ -6,7 +6,7 @@ add_library(prodtestServer SHARED
 
 )
 
-target_link_libraries(prodtestServer   megatron-core pthread)
+target_link_libraries(prodtestServer   megatron-core pthread event)
 
 install(TARGETS prodtestServer DESTINATION ${PLUGIN_TARGET_DIR})
 

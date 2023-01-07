@@ -4,7 +4,7 @@ project (dfsCoreModules)
 
 
 
-ADD_SUBDIRECTORY(errorDispatcher)
+#ADD_SUBDIRECTORY(errorDispatcher)
 ADD_SUBDIRECTORY(http)
 #ADD_SUBDIRECTORY(sqlite)
 #IF(ENABLE_MYSQL)
@@ -23,9 +23,9 @@ ADD_SUBDIRECTORY(webHandler)
 
 
 
-ADD_SUBDIRECTORY(dfsReferrer)
-ADD_SUBDIRECTORY(dfsCaps)
+#ADD_SUBDIRECTORY(dfsReferrer)
+#ADD_SUBDIRECTORY(dfsCaps)
 
-ADD_SUBDIRECTORY(referrerClient)
+#ADD_SUBDIRECTORY(referrerClient)
 
 ADD_SUBDIRECTORY(zsingle)

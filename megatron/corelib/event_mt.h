@@ -23,13 +23,13 @@ namespace Event
     public:
         /// тип евента
         const EVENT_id id;
-        const int rpcChannel;
+//        const int rpcChannel;
         virtual ~Base() {}
         virtual void jdump(Json::Value &v) const=0;
         /// маршрут
         route_t route;
-        Base(const EVENT_id&_id, const int _channel): id(_id),rpcChannel(_channel) {}
-        Base(const EVENT_id& _id, const int _channel,const route_t &_route):id(_id),rpcChannel(_channel),route(_route) {}
+        Base(const EVENT_id&_id): id(_id) {}
+        Base(const EVENT_id& _id,const route_t &_route):id(_id),route(_route) {}
 
         /// pack/unpack to outBuffer/inBuffer, used for RPC
         virtual void pack(outBuffer& b)const =0;
@@ -43,8 +43,8 @@ namespace Event
     class NoPacked:public Base
     {
     public:
-        NoPacked(const EVENT_id&_id): Base(_id,0) {}
-        NoPacked(const EVENT_id& _id, const route_t &_route):Base(_id,0,_route) {}
+        NoPacked(const EVENT_id&_id): Base(_id) {}
+        NoPacked(const EVENT_id& _id, const route_t &_route):Base(_id,_route) {}
         void pack(outBuffer& ) const;
         void unpack(inBuffer& );
 

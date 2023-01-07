@@ -40,8 +40,9 @@ UnknownBase* HTTP::Service::construct(const SERVICE_id &id, const std::string& n
 
 HTTP::Service::Service(const SERVICE_id& id, const std::string&nm, IInstance* _if):
     UnknownBase(nm),Broadcaster(_if),
-    ListenerBuffered1Thread(this,nm,_if->getConfig(),id,_if),
-    _stuff(new __http_stuff)
+    ListenerSimple(nm,_if->getConfig(),id),
+    _stuff(new __http_stuff),
+    iInstance(_if)
 {
     m_maxPost= static_cast<size_t>(_if->getConfig()->get_int64_t("max_post", 1000000, ""));
     {
@@ -109,13 +110,16 @@ bool HTTP::Service::on_DoListen(const httpEvent::DoListen* e)
     msockaddr_in sa=e->addr;
     //sa.setSocketId(newid);
     DBG(logErr2("on_DoListen %s",e->route.dump().c_str()));
-    sendEvent(ServiceEnum::Socket,new socketEvent::AddToListenTCP(newid,sa,"HTTP",false,NULL,e->route));
+    sendEvent(socketListener,new socketEvent::AddToListenTCP(newid,sa,"HTTP",false,e->route));
 
     return true;
 }
 
 bool HTTP::Service::on_startService(const systemEvent::startService*)
 {
+    socketListener=dynamic_cast<ListenerBase*>(iInstance->getServiceOrCreate(ServiceEnum::Socket));
+    if(!socketListener)
+        throw CommonError("if(!socketListener)");
     return true;
 }
 bool HTTP::Service::on_GetBindPortsREQ(const httpEvent::GetBindPortsREQ *e)
@@ -175,13 +179,20 @@ bool HTTP::Service::handleEvent(const REF_getter<Event::Base>& evt)
 bool HTTP::Service::on_Accepted(const socketEvent::Accepted* evt)
 {
     MUTEX_INSPECTOR;
-    _stuff->insert(evt->esi->m_id,new HTTP::Request());
+//    _stuff->insert(evt->esi->m_id,new HTTP::Request());
 //    _stuff->add(ServiceEnum::HTTP,evt->esi);
     return true;
 }
 bool HTTP::Service::on_StreamRead(const socketEvent::StreamRead* evt)
 {
     MUTEX_INSPECTOR;
+
+    {
+        REF_getter<HTTP::Request> W=new HTTP::Request;
+        passEvent(new httpEvent::RequestIncoming(W,evt->esi,evt->route));
+
+    }
+    return true;
 
     REF_getter<HTTP::Request> W=_stuff->getRequestOrNull(evt->esi->m_id);
     if (!W.valid())
@@ -460,6 +471,7 @@ bool HTTP::Service::on_StreamRead(const socketEvent::StreamRead* evt)
     {
         W->sendRequestIncomingIsSent=true;
         passEvent(new httpEvent::RequestIncoming(W,evt->esi,evt->route));
+        _stuff->on_delete(evt->esi,"");
     }
     return  true;
 }
@@ -476,7 +488,7 @@ void HTTP::__http_stuff::on_delete(const REF_getter<epoll_socket_info>&esi, cons
 {
     MUTEX_INSPECTOR;
 
-    M_LOCK(m_lock);
+//    M_LOCK(m_lock);
     auto i=container.find(esi->m_id);
     if (i==container.end())
     {
@@ -490,7 +502,7 @@ REF_getter<HTTP::Request> HTTP::__http_stuff::getRequestOrNull(const SOCKET_id& 
 {
     MUTEX_INSPECTOR;
 
-    M_LOCK(m_lock);
+//    M_LOCK(m_lock);
     auto i=container.find(id);
     if (i!=container.end()) return i->second;
     return NULL;
@@ -500,7 +512,7 @@ void HTTP::__http_stuff::insert(const SOCKET_id& id,const REF_getter<HTTP::Reque
     MUTEX_INSPECTOR;
 
     {
-        M_LOCK(m_lock);
+//        M_LOCK(m_lock);
         container.insert(std::make_pair(id,C));
     }
 
@@ -582,7 +594,7 @@ bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEm
                 return true;
             }
 
-            e->esi->write_(std::string((char*)buf.buf,res));
+            e->esi->write_(toRef((uint8_t*)buf.buf,res));
             F->written_bytes+=res;
             return true;
         }
@@ -651,7 +663,7 @@ std::string datef(const time_t &__t)
             a.append("Server: nginx/1.2.6 (Ubuntu)\r\n");
             a.append("Connection: close\r\n");
             a.append("\r\n");
-            esi->write_(a);
+            esi->write_(toRef(a));
             return -1;
         }
 

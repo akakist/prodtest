@@ -4,12 +4,12 @@
 #include <webDumpable.h>
 #include <SOCKET_id.h>
 
-#include "event_mt.h"
+#include "event.h"
 #include <epoll_socket_info.h>
 #include <json/value.h>
 #include <broadcaster.h>
 #include <msockaddr_in.h>
-#include <listenerBuffered1Thread.h>
+#include <listenerSimple.h>
 #include <IRPC.h>
 
 #include "Events/System/Net/rpc/PassPacket.h"
@@ -48,57 +48,21 @@ enum
 };
 }
 
-struct Session:
-        public Refcountable,
-        public Mutexable,
-        public WebDumpable
+struct Session: public Refcountable, WebDumpable
 {
 
     SOCKET_id socketId;
-    std::deque<std::string> m_cache;
-    std::map<int,std::deque<REF_getter<oscarEvent::SendPacket> > > m_OutEventCache;
-    time_t last_time_hit;
-    enum currentState {EMPTY,FULL};
-    currentState cstate;
-    int64_t bufferSize;
-    bool m_connectionEstablished;
+    std::deque<REF_getter<refbuffer> >  m_OutEventCache;
     REF_getter<epoll_socket_info> esi;
-    void update_last_time_hit()
-    {
-        last_time_hit=time(NULL);
-    }
 
-    Session(SOCKET_id sockId,const REF_getter<epoll_socket_info>& _esi):socketId(sockId),last_time_hit(time(NULL)), cstate(EMPTY), bufferSize(0),m_connectionEstablished(false),esi(_esi) {}
+    Session(SOCKET_id sockId,const REF_getter<epoll_socket_info>& _esi):socketId(sockId),
+        esi(_esi) {}
 
     Json::Value jdump()
     {
-        M_LOCK(this);
         Json::Value v;
         v["socketId"]=std::to_string(CONTAINER(socketId));
-        v["cache_element_count"]=std::to_string((int64_t)m_cache.size());
-        int64_t csum=0;
-        for(auto &z: m_cache)
-        {
-            csum+=z.size();
-        }
-
-        v["cache_buffer_size"]=std::to_string(csum);
-        v["OutEventCache count"]=std::to_string(m_OutEventCache.size());
-
-        int64_t oecSum=0;
-        for(auto &z: m_OutEventCache)
-        {
-            for(auto &x: z.second)
-            {
-                oecSum+=x->buf->size_;
-            }
-        }
-        v["OutEventCache size"]=std::to_string(oecSum);
-
-        v["last_time_hit_dt"]=std::to_string(uint64_t(time(NULL)-last_time_hit));
-        v["m_connectionEstablished"]=m_connectionEstablished;
-        v["currentState"]=cstate==EMPTY?"EMPTY":"FULL";
-        v["bufferSize"]=std::to_string(bufferSize);
+        v["OutEventCache size"]=std::to_string(m_OutEventCache.size());
         return v;
     }
     std::string wname()
@@ -112,13 +76,9 @@ struct Session:
     }
 
 };
-struct __sessions:
-        public Refcountable,
-        public Broadcaster,
-        public WebDumpable
+struct __sessions: public Refcountable,Broadcaster, WebDumpable
 {
 
-    bool getAddrOnConnected(const SOCKET_id& id, msockaddr_in &out);
 
     __sessions(IInstance* ifa):
         Broadcaster(ifa) {}
@@ -132,61 +92,30 @@ struct __sessions:
         Json::Value j;
         return jdump();
     }
-
+    RWLock m_lock;
 
     // all
-    struct _all
-    {
-        std::set<route_t> m_subscribers;
-        std::map<SOCKET_id, REF_getter<Session> > m_socketId2session;
-
-        void clear()
-        {
-            m_subscribers.clear();
-            m_socketId2session.clear();
-        }
-    };
-    _all all;
-    REF_getter<Session>  getSessionOrNull(const SOCKET_id& sid)
-    {
-        auto i=all.m_socketId2session.find(sid);
-
-        if(i!=all.m_socketId2session.end())
-            return i->second;
-
-        return NULL;
-    }
-    std::map<SOCKET_id, REF_getter<Session> > getSessionContainer()
-    {
-        return all.m_socketId2session;
-    }
+    std::set<route_t> mx_subscribers;
+    std::map<SOCKET_id, REF_getter<Session> > mx_socketId2session;
+    std::map<msockaddr_in,REF_getter<Session> > mx_sa2Session;
 
     // connector
-    struct _connector
-    {
-        std::map<msockaddr_in,SOCKET_id > m_sa2socketId;
-        std::map<SOCKET_id,msockaddr_in> m_socketId2sa;
-        void clear()
-        {
-            m_sa2socketId.clear();
-            m_socketId2sa.clear();
-        }
-    };
-    _connector connector;
 
     Json::Value jdump();
 
     void clear()
     {
-        connector.clear();
-        all.clear();
+        WLocker lk(m_lock);
+        mx_sa2Session.clear();
+        mx_subscribers.clear();
+        mx_socketId2session.clear();
     }
 public:
 };
 
 class Service:
     public UnknownBase,
-    public ListenerBuffered1Thread,
+    public ListenerSimple,
     public Broadcaster,
     public IRPC
 {
@@ -195,6 +124,7 @@ class Service:
     SERVICE_id myOscar;
     const real m_iterateTimeout;
 
+    ListenerBase* myOscarListener;
     struct _shared_Addr: public Mutexable
     {
         _shared_Addr():m_networkInitialized(false) {}
@@ -245,22 +175,15 @@ public:
 
     void doSend(const REF_getter<Session> & S);
     void doSendAll();
-    void addSendPacket(const int& channel, const REF_getter<Session>&S, const REF_getter<oscarEvent::SendPacket>&P);
-    void cleanSocket(const SOCKET_id& sid);
+    void addSendPacket(const REF_getter<Session>&S, const REF_getter<refbuffer> &P);
 
-    struct _mx: public Mutexable
-    {
-        int64_t totalSendBufferSize;
-        _mx():totalSendBufferSize(0) {}
-    };
-    _mx mx;
     IInstance* iInstance;
     bool m_isTerminating;
 
 
     void deinit()
     {
-        ListenerBuffered1Thread::deinit();
+        ListenerSimple::deinit();
     }
 
     Service(const SERVICE_id &svs, const std::string&  nm,  IInstance *ifa);

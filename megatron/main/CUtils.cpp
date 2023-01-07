@@ -1601,7 +1601,7 @@ REF_getter<Event::Base> CUtils::unpackEvent(inBuffer&b)
     if(esc==NULL)
     {
         MUTEX_INSPECTOR;
-        logErr2("1cannot find event unpacker for eventId %s try to load service %s", id.dump().c_str(),_DMI().c_str());
+//        logErr2("1cannot find event unpacker for eventId %s try to load service %s", id.dump().c_str(),_DMI().c_str());
         {
             M_LOCK(local.pluginInfo);
             auto j=local.pluginInfo.events.find(id);

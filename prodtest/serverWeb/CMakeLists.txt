@@ -5,7 +5,7 @@ prodtestWebServer.cpp
 prodtestWebServerService.cpp
 )
 
-target_link_libraries(prodtestWebServer   megatron-core pthread)
+target_link_libraries(prodtestWebServer   megatron-core pthread event)
 
 install(TARGETS prodtestWebServer DESTINATION ${PLUGIN_TARGET_DIR})
 

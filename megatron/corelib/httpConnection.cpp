@@ -242,13 +242,15 @@ void HTTP::Response::makeResponse(const REF_getter<epoll_socket_info>& esi)
 {
     std::string out = build_html_response();
     esi->markedToDestroyOnSend=true;
-    iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,out));
+    esi->write_(out);
+//    iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,toRef(out)));
 
 }
 void HTTP::Response::makeResponsePersistent(const REF_getter<epoll_socket_info> &esi)
 {
     std::string out = build_html_response_wo_content_length();
-    iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,out));
+    esi->write_(out);
+//  iInstance->sendEvent(ServiceEnum::Socket, new socketEvent::Write(esi,toRef(out)));
 }
 
 bool HTTP::Request::__gets$(std::string& dst,const std::string& delim, std::string& data)

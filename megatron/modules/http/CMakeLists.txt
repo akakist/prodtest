@@ -8,6 +8,6 @@ add_library(core-http SHARED
             mime_types.cpp
 
            )
-target_link_libraries(core-http megatron-core pthread)
+target_link_libraries(core-http megatron-core pthread event)
 install(TARGETS core-http DESTINATION ${PLUGIN_TARGET_DIR})
 

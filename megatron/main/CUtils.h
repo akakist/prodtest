@@ -159,11 +159,6 @@ public:
             if(CONTAINER(gen)<=0) CONTAINER(gen)=1;
             return gen;
         }
-        size_t size()
-        {
-            M_LOCK(this);
-            return 0;
-        }
 
 
 

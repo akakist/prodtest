@@ -11,7 +11,6 @@ namespace prodtestEvent {
 
     class AddTaskREQ: public Event::Base
     {
-        enum {channel=CHANNEL_100};
 
 
     public:
@@ -22,12 +21,12 @@ namespace prodtestEvent {
         AddTaskREQ(const std::string& _session,
                 const std::string& _sampleString,int _count,
                 const route_t&r)
-            :Base(prodtestEventEnum::AddTaskREQ,channel,r),
+            :Base(prodtestEventEnum::AddTaskREQ,r),
               session(_session),
               sampleString(_sampleString),count(_count)
         {}
         AddTaskREQ(const route_t&r)
-            :Base(prodtestEventEnum::AddTaskREQ,channel,r) {}
+            :Base(prodtestEventEnum::AddTaskREQ,r) {}
         std::string session;
         std::string sampleString;
         int count;
@@ -47,7 +46,6 @@ namespace prodtestEvent {
 
     class AddTaskRSP: public Event::Base
     {
-        enum {channel=CHANNEL_100};
 
 
     public:
@@ -58,12 +56,12 @@ namespace prodtestEvent {
         AddTaskRSP(const std::string& _session,
                 const std::string& _sampleString,int _count,
                 const route_t&r)
-            :Base(prodtestEventEnum::AddTaskRSP,channel,r),
+            :Base(prodtestEventEnum::AddTaskRSP,r),
               session(_session),
               sampleString(_sampleString),count(_count)
         {}
         AddTaskRSP(const route_t&r)
-            :Base(prodtestEventEnum::AddTaskRSP,channel,r) {}
+            :Base(prodtestEventEnum::AddTaskRSP,r) {}
         std::string session;
         std::string sampleString;
         int count;

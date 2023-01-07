@@ -26,6 +26,7 @@ include_directories(megatron/corelib
 
 		#	/usr/local/include 
 			megatron  .  svs megatron/lib megatron/lib/sqlite3
+			/usr/local/Cellar/openssl@3/3.0.7/include
 			)
 
 include_directories(system /usr/local/include)

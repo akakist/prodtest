@@ -19,7 +19,6 @@ inline std::set<EVENT_id> getEvents_socket()
     out.insert(socketEventEnum::UdpAssoc);
     out.insert(socketEventEnum::UdpAssocRSP);
     out.insert(socketEventEnum::UdpPacketIncoming);
-    out.insert(socketEventEnum::Write);
     out.insert(systemEventEnum::startService);
     out.insert(timerEventEnum::TickTimer);
     out.insert(webHandlerEventEnum::RegisterHandler);
@@ -40,10 +39,6 @@ inline void regEvents_socket()
     iUtils->registerEvent(socketEvent::NotifyBindAddress::construct);
     iUtils->registerEvent(socketEvent::NotifyOutBufferEmpty::construct);
     iUtils->registerEvent(socketEvent::StreamRead::construct);
-    iUtils->registerEvent(socketEvent::UdpAssoc::construct);
-    iUtils->registerEvent(socketEvent::UdpAssocRSP::construct);
-    iUtils->registerEvent(socketEvent::UdpPacketIncoming::construct);
-    iUtils->registerEvent(socketEvent::Write::construct);
     iUtils->registerEvent(systemEvent::startService::construct);
     iUtils->registerEvent(timerEvent::TickTimer::construct);
     iUtils->registerEvent(webHandlerEvent::RegisterHandler::construct);

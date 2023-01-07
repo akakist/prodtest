@@ -52,6 +52,13 @@ void CInstance::passEvent(const REF_getter<Event::Base>&e)
         forwardEvent(rt->id,e);
     }
     break;
+    case Route::LISTENER:
+    {
+        MUTEX_INSPECTOR;
+        ListenerRoute* rt=(ListenerRoute* )r.operator ->();
+        rt->id->listenToEvent(e);
+    }
+    break;
     case Route::OBJECTHANDLER_POLLED:
     {
         MUTEX_INSPECTOR;
@@ -125,7 +132,7 @@ void CInstance::sendEvent(const std::string& dstHost, const SERVICE_id& dstServi
 }
 void CInstance::sendEvent(const msockaddr_in& addr, const SERVICE_id& svs,  const REF_getter<Event::Base>&e)
 {
-    if(m_terminating)return;
+//    if(m_terminating)return;
     XTRY;
     forwardEvent(ServiceEnum::RPC,new rpcEvent::SendPacket(addr,svs,e));
     XPASS;
@@ -133,13 +140,14 @@ void CInstance::sendEvent(const msockaddr_in& addr, const SERVICE_id& svs,  cons
 
 void CInstance::sendEvent(ListenerBase *l,  const REF_getter<Event::Base>&e)
 {
-    if(m_terminating)return;
+//    if(m_terminating)return;
+    e->route.push_front(new ListenerRoute(l));
     l->listenToEvent(e);
 }
 UnknownBase* CInstance::getServiceNoCreate(const SERVICE_id& svs)
 {
-    if(m_terminating)return nullptr;
-    M_LOCK(services);
+//    if(m_terminating)return nullptr;
+    RLocker lk(services.m_lock);
     auto i=services.container.find(svs);
     UnknownBase* u=NULL;
     if(i==services.container.end())
@@ -161,7 +169,7 @@ UnknownBase* CInstance::getServiceOrCreate(const SERVICE_id& svs)
     UnknownBase* u=nullptr;
     {
         XTRY;
-        M_LOCK(services);
+        RLocker lk(services.m_lock);
         auto i=services.container.find(svs);
         if(i==services.container.end())
         {
@@ -200,7 +208,7 @@ void CInstance::forwardEvent(const SERVICE_id& svs,  const REF_getter<Event::Bas
         UnknownBase*u=nullptr;
         {
             XTRY;
-            M_LOCK(services);
+            RLocker lk(services.m_lock);
             auto i=services.container.find(svs);
             if(i==services.container.end())
             {
@@ -245,10 +253,12 @@ void CInstance::forwardEvent(const SERVICE_id& svs,  const REF_getter<Event::Bas
 
     XPASS;
 }
-
+Mutex initServiceMX;
 UnknownBase* CInstance::initService(const SERVICE_id& sid)
 {
     MUTEX_INSPECTOR;
+//    M_LOCK(initService_MX);
+    {
     if(m_terminating)return NULL;
     Utils_local * locals = m_utils->getLocals();
     Mutex *initMX=NULL;
@@ -334,19 +344,21 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
     }
 
     {
-        MUTEX_INSPECTOR;
-        M_LOCK(services);
-        auto iii=services.container.find(sid);
-        if(iii!=services.container.end())
         {
-            return iii->second;
+            MUTEX_INSPECTOR;
+            RLocker lk(services.m_lock);
+            auto iii=services.container.find(sid);
+            if(iii!=services.container.end())
+            {
+                return iii->second;
+            }
         }
-        else
+//        else
         {
             MUTEX_INSPECTOR;
             {
                 MUTEX_INSPECTOR;
-                M_UNLOCK(services);
+//                M_UNLOCK(services);
                 std::string name;
                 {
                     MUTEX_INSPECTOR;
@@ -372,6 +384,7 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
                 }
             }
             {
+                WLocker lk(services.m_lock);
                 services.container.insert(std::make_pair(sid,u));
             }
         }
@@ -395,7 +408,7 @@ UnknownBase* CInstance::initService(const SERVICE_id& sid)
 
     return u;
     XPASS;
-
+    }
 }
 void CInstance::initServices()
 {
@@ -440,7 +453,7 @@ void CInstance::deinitServices()
     {
         MUTEX_INSPECTOR;
         {
-            M_LOCK(services);
+            WLocker lk(services.m_lock);
             svs=services.container;
             services.container.clear();
         }

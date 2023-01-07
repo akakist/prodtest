@@ -4,10 +4,10 @@ include_directories(../../lib/miniupnp-master)
 add_library(core-rpc SHARED
             rpc.cpp
             rpcService.cpp
-            upnp_tr.c
+#            upnp_tr.c
            )
 
-target_link_libraries(core-rpc megatron-core pthread)
+target_link_libraries(core-rpc megatron-core pthread event)
 
 install(TARGETS core-rpc DESTINATION ${PLUGIN_TARGET_DIR})
 

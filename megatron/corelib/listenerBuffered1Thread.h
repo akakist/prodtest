@@ -20,8 +20,7 @@ class ListenerBuffered1Thread:public ListenerBase
 protected:
 
     /// implementation of base virtual
-    void listenToEvent(const REF_getter<Event::Base>&e);
-    void listenToEvent(const std::deque<REF_getter<Event::Base> >&);
+    void listenToEvent(const REF_getter<Event::Base>&e) final;
 public:
     void deinit();
 

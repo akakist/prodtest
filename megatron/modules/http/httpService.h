@@ -4,7 +4,7 @@
 #include "unknown.h"
 
 #include "broadcaster.h"
-#include "listenerBuffered1Thread.h"
+#include "listenerSimple.h"
 #include "SOCKET_id.h"
 #include "httpConnection.h"
 
@@ -28,24 +28,20 @@ namespace HTTP
 {
 
 class __http_stuff : public Refcountable
-/*: public SocketsContainerBase*/
 {
-    Mutex m_lock;
+//    Mutex m_lock;
     std::map<SOCKET_id,REF_getter<HTTP::Request> > container;
 public:
     __http_stuff()
-//            :SocketsContainerBase("__http_stuff")
     {}
     REF_getter<HTTP::Request> getRequestOrNull(const SOCKET_id& id);
     void insert(const SOCKET_id& id,const REF_getter<HTTP::Request> &C);
     virtual ~__http_stuff() {}
     void on_delete(const REF_getter<epoll_socket_info>&esi, const std::string& reason);
-//        void on_mod_write(const REF_getter<epoll_socket_info>&) {}
     void clear()
     {
-//            SocketsContainerBase::clear();
         {
-            M_LOCK(m_lock);
+//            M_LOCK(m_lock);
             container.clear();
         }
     }
@@ -55,7 +51,7 @@ public:
 class Service:
     public UnknownBase,
     public Broadcaster,
-    public ListenerBuffered1Thread
+    public ListenerSimple
 {
 
     // config
@@ -69,6 +65,7 @@ class Service:
         std::set<msockaddr_in> bind_addrs;
     };
     _mx mx;
+    ListenerBase* socketListener;
     //!config
     bool on_StreamRead(const socketEvent::StreamRead* evt);
     bool on_Accepted(const socketEvent::Accepted* evt);
@@ -97,7 +94,7 @@ class Service:
 public:
     void deinit()
     {
-        ListenerBuffered1Thread::deinit();
+//        ListenerBuffered1Thread::deinit();
     }
     static UnknownBase*construct(const SERVICE_id&id, const std::string&nm, IInstance *_if);
     Service(const SERVICE_id& id, const std::string& nm, IInstance *_if);
@@ -127,6 +124,7 @@ private:
         std::map<int64_t,std::pair<REF_getter<HTTP::Request>,std::vector<std::string> > > container;
     };
     _senderIo senderIo;
+    IInstance *iInstance;
 };
 };
 #endif
