@@ -11,7 +11,7 @@ endif()
 #set(M1 true)
 
 
-SET(ENABLE_MYSQL true)
+#SET(ENABLE_MYSQL true)
 #SET(FreeBSD true)
 SET(DFS true)
 if(LINUX)
@@ -53,7 +53,7 @@ if(M1)
 endif()
 include_directories(system /usr/local/include)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fPIC ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC ")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC ")
 # -g -ggdb3 -pg
 link_directories( /usr/local/lib)

@@ -35,7 +35,7 @@ void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
     {
         if (epoll_ctl(m_handle, flag, fd, &evz) < 0)
         {
-            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
+            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->m_fd), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
             {
                 esi->close("EPOLL_CTL_ADD");
@@ -78,7 +78,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
     struct epoll_event evz;
     evz.data.u64 = CONTAINER(esi->m_id);
     evz.events = EPOLLIN;
-    int fd=CONTAINER(esi->get_fd());
+    int fd=CONTAINER(esi->m_fd);
     bool added=esi->ev_added;
     int flag=added?EPOLL_CTL_MOD:EPOLL_CTL_ADD;
     esi->ev_added=true;
@@ -86,7 +86,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
     {
         if (epoll_ctl(m_handle, flag, fd, &evz) < 0)
         {
-            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
+            logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->m_fd), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
             {
                 esi->close("EPOLL_CTL_ADD");
@@ -118,7 +118,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
 }
 void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
 {
-//    logErr2("added sock to epoll %d %s",esi->get_fd(),__PRETTY_FUNCTION__);
+//    logErr2("added sock to epoll %d %s",esi->m_fd,__PRETTY_FUNCTION__);
 #ifdef HAVE_EPOLL
     {
         struct epoll_event evtz {};
@@ -128,9 +128,9 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
         int flag=added?EPOLL_CTL_MOD:EPOLL_CTL_ADD;
         esi->ev_added=true;
 
-        if (epoll_ctl(m_handle, flag, CONTAINER(esi->get_fd()), &evtz) < 0)
+        if (epoll_ctl(m_handle, flag, CONTAINER(esi->m_fd), &evtz) < 0)
         {
-            logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
+            logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(esi->m_fd), errno);
         }
 
     }
@@ -173,14 +173,14 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
 void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
 {
 
-//    logErr2("added sock to epoll %d %s",esi->get_fd(),__PRETTY_FUNCTION__);
+//    logErr2("added sock to epoll %d %s",esi->m_fd,__PRETTY_FUNCTION__);
 
     XTRY;
 #ifdef HAVE_EPOLL
     struct epoll_event evz;
     evz.data.u64 = CONTAINER(esi->m_id);
     evz.events = EPOLLIN;
-    int fd=CONTAINER(esi->get_fd());
+    int fd=CONTAINER(esi->m_fd);
     bool added=esi->ev_added;
     int flag=added?EPOLL_CTL_MOD:EPOLL_CTL_ADD;
     esi->ev_added=true;
@@ -188,7 +188,7 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
     {
         if (epoll_ctl(m_handle, flag, fd, &evz) < 0)
         {
-            logErr2("epoll_ctl add: socket '%d' - errno %d %s %s %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__,strerror(errno));
+            logErr2("epoll_ctl add: socket '%d' - errno %d %s %s %s",CONTAINER(esi->m_fd), errno,__PRETTY_FUNCTION__,strerror(errno));
             if(!esi->closed())
             {
                 esi->close("EPOLL_CTL_ADD");

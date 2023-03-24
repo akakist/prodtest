@@ -18,21 +18,21 @@ public:
       RLocker lk(mx);
       return metricArray_;
   }
-  void add_value(std::string_view n,double v)
+  void add_value(const std::string& n,double v)
   {
       WLocker lk(mx);
       metricArray_.push_back({(std::string)n,v});
   }
 
-  void add_value(std::string_view n,long v)
+  void add_value(const std::string& n,long v)
   {
       WLocker lk(mx);
       metricArray_.push_back({(std::string)n,v});
   }
-  void add_value(std::string_view n,const std::string& v)
+  void add_value(const std::string& n,const std::string& v)
   {
       WLocker lk(mx);
-      metricArray_.push_back({(std::string)n,v});
+      metricArray_.push_back(std::make_pair((std::string)n,v));
   }
 };
 
