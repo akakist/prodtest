@@ -49,7 +49,7 @@ printf("@@ %s\n",__PRETTY_FUNCTION__);
             instance1->initServices();
         }
 
-        usleep(100);
+        usleep(500000);
         system("ab -n 100000 -k -c 100  http://localhost:8088/");
 
         delete iUtils;

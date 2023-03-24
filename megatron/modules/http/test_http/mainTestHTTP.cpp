@@ -60,8 +60,8 @@ int mainTestHTTP(int argc, char** argv )
             instance1->initServices();
         }
 
-        usleep(100);
-        system("ab -n 1000000 -k -c 200  http://localhost:8088/");
+        usleep(100000);
+        system("ab -n 100000 -k -c 100  http://localhost:8088/");
 //        sleep(1);
         delete iUtils;
         return 0;
