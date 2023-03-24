@@ -90,7 +90,7 @@ bool MetricsHTTPProvider::Service::handleEvent(const REF_getter<Event::Base>& e)
 
 bool MetricsHTTPProvider::Service::AddProvider(MetricsProviderEvent::AddProvider* e)
 {
-    providers_->add_provider(e->name,e->provider.operator->());
+    providers_->add_provider(e->provider.operator->());
     return true;
 }
 

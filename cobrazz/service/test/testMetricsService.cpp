@@ -17,8 +17,7 @@ bool testMetrics::Service::on_startService(const systemEvent::startService*)
 {
     MUTEX_INSPECTOR;
 
-//    sendEvent(ServiceEnum::HTTP,new httpEvent::DoListen(bindAddr,ListenerBase::serviceId));
-    sendEvent(ServiceEnum::MetricsHTTPProviderService,new MetricsProviderEvent::AddProvider("iaia", provider_,ListenerBase::serviceId));
+    sendEvent(ServiceEnum::MetricsHTTPProviderService,new MetricsProviderEvent::AddProvider(provider_,ListenerBase::serviceId));
     sendEvent(ServiceEnum::Timer,new timerEvent::SetTimer(1,NULL,NULL,0.1,ListenerBase::serviceId));
 
     return true;

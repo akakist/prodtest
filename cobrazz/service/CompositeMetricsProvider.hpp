@@ -8,14 +8,14 @@
 #include "mutexable.h"
 class CompositeMetricsProvider: public Refcountable
 {
-    std::map<std::string, REF_getter<MetricsProvider> > providersMX;
-    Mutex mx;
+    std::vector<REF_getter<MetricsProvider> > providersMX;
+    RWLock mx;
 public:
   void
-  add_provider(const std::string &name, MetricsProvider* p);
+  add_provider(MetricsProvider* p);
 
 
-  MetricsProvider::MetricArray get_values();
+  MetricsProvider::MetricArray get_valuesMX();
   std::map<std::string,std::string> getStringValues();
   
 

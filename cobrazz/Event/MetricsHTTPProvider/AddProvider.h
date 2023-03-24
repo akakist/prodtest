@@ -13,10 +13,9 @@ namespace MetricsProviderEvent
         {
             return NULL;
         }
-        AddProvider(const std::string& n,const REF_getter<MetricsProvider>& __R, const route_t & r)
-            :NoPacked(MetricsProviderEventEnum::AddProvider,r),name(n),
+        AddProvider(const REF_getter<MetricsProvider>& __R, const route_t & r)
+            :NoPacked(MetricsProviderEventEnum::AddProvider,r),
              provider(__R) {}
-        const std::string name;
         const REF_getter<MetricsProvider> provider;
         void jdump(Json::Value &) const
         {

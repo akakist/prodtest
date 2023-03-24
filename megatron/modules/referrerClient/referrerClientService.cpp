@@ -8,7 +8,7 @@
 #endif
 #include "IInstance.h"
 
-
+#include <algorithm>
 
 #include "route_t.h"
 #include "CHUNK_id.h"

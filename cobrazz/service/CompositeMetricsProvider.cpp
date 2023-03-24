@@ -19,19 +19,19 @@ public:
 };
 
 
-void CompositeMetricsProvider::add_provider(const std::string& name, MetricsProvider* p)
+void CompositeMetricsProvider::add_provider(MetricsProvider* p)
 {
-    M_LOCK(mx);
-    providersMX.insert({name,p});
+    WLocker lk(mx);
+    providersMX.push_back(p);
 }
 
 
-MetricsProvider::MetricArray CompositeMetricsProvider::get_values()
+MetricsProvider::MetricArray CompositeMetricsProvider::get_valuesMX()
 {
 
-    std::map<std::string, REF_getter<MetricsProvider> > provs;
+    std::vector<REF_getter<MetricsProvider > > provs;
     {
-        M_LOCK(mx);
+        RLocker lk(mx);
         provs=providersMX;
     }
 
@@ -39,7 +39,7 @@ MetricsProvider::MetricArray CompositeMetricsProvider::get_values()
 
     for(auto& z:provs)
     {
-      auto arr=z.second->get_values();
+      auto arr=z->get_values();
       for(auto &x: arr)
       {
           ret.push_back(x);
@@ -53,13 +53,13 @@ std::map<std::string,std::string> CompositeMetricsProvider::getStringValues()
 {
 
     std::map<std::string,std::string> ret;
-    auto arr=get_values();
+    auto arr=get_valuesMX();
     for(auto &x:arr )
     {
         for(auto& z:arr)
         {
               auto& key=z.first;
-              auto v=z.second;
+              auto &v=z.second;
               to_string_visitor vis;
               boost::apply_visitor(vis,v);
               ret[key]=vis.str;
