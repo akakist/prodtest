@@ -72,13 +72,9 @@ void epoll_socket_info::write_(const std::string&s)
         XTRY;
         {
             XTRY;
-            if(s.size()+m_outBuffer.size()>maxOutBufferSize)
-                throw CommonError("socket outBuffer size overflow %ld",maxOutBufferSize);
+//            if(s.size()+m_outBuffer.size()>maxOutBufferSize)
+//                throw CommonError("socket outBuffer size overflow %ld",maxOutBufferSize);
             m_outBuffer.append(this,s.data(),s.size());
-//            multiplexor->sockStartWrite(this);
-//            logErr2("multiplexor->sockStartWrite(this);");
-
-
             XPASS;
         }
         XPASS;
@@ -267,8 +263,7 @@ bool epoll_socket_info::closed()
 }
 
 epoll_socket_info::epoll_socket_info(const int &_socketType, const STREAMTYPE &_streamtype, const SOCKET_id& _id, const SOCKET_fd& _fd,
-                                     const route_t& _route,
-                                     const int64_t& _maxOutBufferSize, const char *_socketDescription, const REF_getter<NetworkMultiplexor> &_multiplexor):
+                                     const route_t& _route, const char *_socketDescription, const REF_getter<NetworkMultiplexor> &_multiplexor):
     m_socketType(_socketType),
     m_streamType(_streamtype),
     m_id(_id),
@@ -276,7 +271,7 @@ epoll_socket_info::epoll_socket_info(const int &_socketType, const STREAMTYPE &_
     m_route(_route),
     markedToDestroyOnSend(false),
     inConnection(false),
-    maxOutBufferSize(_maxOutBufferSize),
+//    maxOutBufferSize(_maxOutBufferSize),
     socketDescription(_socketDescription),
     request_for_connect(NULL),
       remote_name(NULL),

@@ -18,37 +18,30 @@
 #include <sys/event.h>
 #endif
 #include "REF.h"
+#include "commonError.h"
 class epoll_socket_info;
 
-struct NetworkMultiplexor: public Refcountable, public Mutexable
+struct NetworkMultiplexor: public Refcountable
 {
-#ifdef HAVE_EPOLL
-    e_poll m_epoll;
-#endif
+    int m_handle;
 private:
-#ifdef HAVE_KQUEUE
-    int m_kqueue;
-//    std::vector<struct kevent> evSet;
-//    struct kevent evSt[1024];
-//    int evIdx;
 
 public:
     NetworkMultiplexor()
     {
-        m_kqueue=kqueue();
-        if(m_kqueue==-1)
+#ifdef  HAVE_KQUEUE
+        m_handle=kqueue();
+        if(m_handle==-1)
             throw CommonError("kqueue(): errno %d",errno);
+#endif
+#ifdef HAVE_EPOLL
+        m_handle=epoll_create(100);
+        if(m_handle==-1)
+            throw CommonError("epoll_create(): errno %d",errno);
+#endif
     }
 
-#endif
 public:
-#ifdef HAVE_KQUEUE
-//    void clear();
-//    void addEvent(const struct kevent& k);
-//    size_t size();
-//    std::vector<struct kevent> extractEvents();
-    int getKqueue();
-#endif
 
     ~NetworkMultiplexor();
 
@@ -57,7 +50,6 @@ public:
     void sockStopWrite(epoll_socket_info* esi);
     void sockAddRWOnNew(epoll_socket_info* esi);
 
-//    int add_counter=0;
 
 };
 

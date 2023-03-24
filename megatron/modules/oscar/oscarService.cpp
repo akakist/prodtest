@@ -24,14 +24,14 @@ Oscar::Service::Service(const SERVICE_id &svs, const std::string&  nm,IInstance*
     UnknownBase(nm),
     ListenerSimple(nm,ifa->getConfig(),svs),
     Broadcaster(ifa),
-    m_maxPacketSize(32*1024*1024),
+//    m_maxPacketSize(32*1024*1024),
     iInstance(ifa)
 {
     try
     {
         XTRY;
-        m_maxPacketSize= static_cast<size_t>(ifa->getConfig()->get_int64_t("maxPacketSize",
-                                             32 * 1024 * 1024, ""));
+//        m_maxPacketSize= static_cast<size_t>(ifa->getConfig()->get_int64_t("maxPacketSize",
+//                                             32 * 1024 * 1024, ""));
         XPASS;
     }
     catch (std::exception &e)
@@ -104,11 +104,11 @@ bool Oscar::Service::on_StreamRead(const socketEvent::StreamRead* evt)
                             XTRY;
                             auto len= static_cast<size_t>(b.get_PN_nothrow(success));
                             if (!success) return true;
-                            if (len>m_maxPacketSize)
-                            {
-                                need_disconnect=true;
-                            }
-                            else
+//                            if (len>m_maxPacketSize)
+//                            {
+//                                need_disconnect=true;
+//                            }
+//                            else
                             {
                                 XTRY;
                                 if(b.remains()<len)

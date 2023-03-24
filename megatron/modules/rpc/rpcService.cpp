@@ -3,7 +3,7 @@
 #include "rpcService.h"
 
 #include "version_mega.h"
-#include "event.h"
+//#include "event.h"
 #include <Events/System/Net/rpc/Connected.h>
 #include "Events/System/Net/rpc/IncomingOnAcceptor.h"
 #include "Events/System/Net/rpc/IncomingOnConnector.h"

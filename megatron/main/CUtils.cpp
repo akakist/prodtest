@@ -34,11 +34,6 @@
 #include <zlib.h>
 #include <version_mega.h>
 #include "megatron_config.h"
-#if defined(QT5)
-#include <QFile>
-#include <QIODevice>
-#include <QStandardPaths>
-#endif
 #include "CInstance.h"
 #include "threadNameCtl.h"
 
@@ -593,20 +588,6 @@ std::string CUtils::bin2hex(const std::string & in)
 long CUtils::load_file_from_disk(std::string & res, const std::string & fn)
 {
     XTRY;
-#if defined(QT5)
-    QFile file(fn.c_str());
-
-    if(!file.open(QIODevice::ReadOnly))
-    {
-        logErr2("cannot open %s",fn.c_str());
-        return -1;
-    }
-    file.setTextModeEnabled(false);
-    QByteArray arr=file.readAll();
-    res=std::string(arr.data(),arr.size());
-    file.close();
-    return arr.size();
-#else
 
 #ifdef _MSC_VER
     struct _stat  st;
@@ -635,7 +616,6 @@ long CUtils::load_file_from_disk(std::string & res, const std::string & fn)
         return st.st_size;
     }
     return -1;
-#endif
     XPASS;
 
 }
@@ -913,21 +893,6 @@ std::string CUtils::dump(const std::map<msockaddr_in,std::set<SERVICE_id> > &s)
 
 int64_t CUtils::calcFileSize(const std::string & fn)
 {
-#if defined( _WIN32) && defined(QT5)
-    QFile file(fn.c_str());
-    if(!file.open(QIODevice::ReadOnly))
-    {
-        logErr2("cannot open %s",fn.c_str());
-        return -1;
-    }
-    file.setTextModeEnabled(false);
-    if(file.isTextModeEnabled()) throw CommonError("if(file.isTextModeEnabled()) ");
-
-    int64_t sz=file.size();
-    file.close();
-    return sz;
-
-#else
     int _fd=::open(fn.c_str(),O_RDONLY);
     if(_fd==-1)
     {
@@ -946,7 +911,6 @@ int64_t CUtils::calcFileSize(const std::string & fn)
         return -1;
     }
     return size;
-#endif
 }
 
 bool is_file_exists(const std::string &pathname)
@@ -1386,18 +1350,12 @@ std::string CUtils::gLogDir()
         throw CommonError("gLogDir: if(m_files_dir.size()==0)");
     return m_files_dir;
 #endif
-#ifdef QT5
-    std::string cachedir=QStandardPaths::writableLocation(QStandardPaths::CacheLocation).toStdString();
-    iUtils->checkPath(cachedir);
-    return cachedir;
-#else
     {
         std::string cachedir=expand_homedir(LOG_TARGET_DIR);
         iUtils->checkPath(cachedir);
         return cachedir;
     }
     return ".";
-#endif
 }
 
 std::string CUtils::gCacheDir()
@@ -1407,18 +1365,12 @@ std::string CUtils::gCacheDir()
         throw CommonError("gCacheDir: if(m_files_dir.size()==0)");
     return m_files_dir;
 #endif
-#ifdef QT5
-    std::string cachedir=QStandardPaths::writableLocation(QStandardPaths::CacheLocation).toStdString();
-    iUtils->checkPath(cachedir);
-    return cachedir;
-#else
     {
         std::string cachedir=expand_homedir(CACHE_TARGET_DIR);
         iUtils->checkPath(cachedir);
         return cachedir;
     }
     return ".";
-#endif
 }
 std::string CUtils::gConfigDir()
 {
@@ -1428,17 +1380,10 @@ std::string CUtils::gConfigDir()
     return m_files_dir;
 #endif
 
-#ifdef QT5
-    std::string cachedir=QStandardPaths::writableLocation(QStandardPaths::ConfigLocation).toStdString();
-    iUtils->checkPath(cachedir);
-    return cachedir;
-#else
     std::string cachedir=expand_homedir(CONFIG_TARGET_DIR);
     iUtils->checkPath(cachedir);
     return cachedir;
     return ".";
-
-#endif
 }
 std::string CUtils::filesDir()
 {

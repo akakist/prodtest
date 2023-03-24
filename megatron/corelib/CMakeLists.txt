@@ -2,9 +2,8 @@
 
 #project(dfsCore)
 
+ADD_SUBDIRECTORY(test)
 
-#include_directories(../local ../lib/jsoncpp-0.5.0/include /usr/local/include .. . )
-#add_definitions(-std=gnu++0x)
 
 add_library(megatron-core STATIC
             DBH.cpp

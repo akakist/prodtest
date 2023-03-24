@@ -48,7 +48,7 @@ namespace Oscar
         public ListenerSimple,
         public Broadcaster
     {
-        size_t m_maxPacketSize;
+//        size_t m_maxPacketSize;
 
 
         ListenerBase* socketListener;
@@ -85,7 +85,7 @@ namespace Oscar
     public:
         void deinit()
         {
-//            ListenerBuffered1Thread::deinit();
+            ListenerSimple::deinit();
         }
 
         Service(const SERVICE_id &svs, const std::string&  nm,IInstance* ifa);

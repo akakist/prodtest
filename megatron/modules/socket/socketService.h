@@ -9,7 +9,7 @@
 #include <unknown.h>
 #include <listenerSimple.h>
 #include <broadcaster.h>
-#include "event.h"
+//#include "event.h"
 #include <Events/System/Net/socket/AddToListenTCP.h>
 #include <Events/System/Net/socket/AddToConnectTCP.h>
 #include <Events/System/Run/startService.h>
@@ -20,37 +20,36 @@
 namespace SocketIO
 {
 struct SocketsContainerForSocketIO
-    :public Refcountable,
-     public Mutexable
+    :public Refcountable
 {
 
 private:
     std::map<SOCKET_id,REF_getter<epoll_socket_info> > m_container;
 public:
     REF_getter<NetworkMultiplexor> multiplexor;
-
+    RWLock lk;
     SocketsContainerForSocketIO(): multiplexor(new NetworkMultiplexor)
     {}
     ~SocketsContainerForSocketIO();
     void remove(const SOCKET_id& sid)
     {
-        M_LOCK(this);
+        WLocker lock(lk);
         m_container.erase(sid);
 
     }
     std::map<SOCKET_id,REF_getter<epoll_socket_info> > getContainer()
     {
-        M_LOCK(this);
+        RLocker lock(lk);
         return m_container;
     }
     size_t count(const SOCKET_id& sid)
     {
-        M_LOCK(this);
+        RLocker lock(lk);
         return m_container.count(sid);
     }
     REF_getter<epoll_socket_info> getOrNull(const SOCKET_id& sid)
     {
-        M_LOCK(this);
+        RLocker lock(lk);
         auto z=m_container.find(sid);
         if(z==m_container.end())
             return NULL;
@@ -60,13 +59,8 @@ public:
 
     void add(const REF_getter<epoll_socket_info>& esi)
     {
-//        multiplexor->sockAddReadOnNew(esi.operator ->());
-
-        {
-            M_LOCK(this);
+            WLocker lock(lk);
             m_container.insert(std::make_pair(esi->m_id,esi));
-        }
-
     }
 
     void clear()
@@ -87,60 +81,35 @@ private:
     Json::Value jdump()
     {
         Json::Value v;
-        v["total_recv"]=std::to_string(m_total_recv);
-        v["total_send"]=std::to_string(m_total_send);
-        v["total_accepted"]=std::to_string(m_total_accepted);
         v["listen_backlog"]=(int)m_listen_backlog;
-//        v["sockets"]=m_socks->jdump();
-        v["maxOutBufferSize"]=std::to_string(maxOutBufferSize);
-        v["epoll_size"]=std::to_string(epoll_size);
         v["epoll_timeout_millisec"]=std::to_string(epoll_timeout_millisec);
-//        v["sockets"]=m_socks->jdump();
 
         return v;
     }
-    int64_t m_total_recv, m_total_send,m_total_accepted;
 
     struct PTHSOCKS
     {
         RWLock lock;
-        std::map<pthread_t, REF_getter<SocketsContainerForSocketIO> > m_socks_pollers;
+        std::vector<REF_getter<SocketsContainerForSocketIO> > m_socks_pollers;
+        std::deque<REF_getter<SocketsContainerForSocketIO> > for_threads;
+        REF_getter<SocketsContainerForSocketIO> getPoller(SocketIO::Service* s)
+        {
+            if(m_socks_pollers.size()!=s->n_workers)
+                throw CommonError("if(m_socks_pollers.size()!=s->n_workers)");
+            {
+                return m_socks_pollers[rand()%m_socks_pollers.size()];
+            }
+        }
     };
     PTHSOCKS m_io_socks_pollers;
-#ifdef WITH_TCP_STATS
-    __stats m_stats;
-#endif
-#define N_WORKERS 4
     std::vector<pthread_t> m_pthread_id_worker;
-//    pthread_t m_pthread_id_acceptor;
     int64_t m_listen_backlog;
-    const int64_t maxOutBufferSize;
-#ifdef HAVE_EPOLL
-    int epoll_size;
-    int epoll_timeout_millisec;
-#endif
-#ifdef HAVE_KQUEUE
+    int n_workers;
     /// конфигурационный параметр
-    int epoll_size;
     int epoll_timeout_millisec;
 
-//    struct kev_list
-//    {
-//        struct kevent kev[1024];
-//        std::atomic<int> kevidx;
-//        kev_list()
-//        {
-//            kevidx.store(0);
-//        }
-//    };
-//    kev_list klist0;
-//    kev_list klist1;
-//    kev_list *default_kev;
 
-#endif
-
-    std::deque<std::pair<SOCKET_fd,REF_getter<epoll_socket_info> > > accepteds_MX_container;
-    Mutex accepted_MX_lock;
+//#endif
 
 
 
@@ -149,7 +118,6 @@ private:
     bool on_AddToConnectTCP(const socketEvent::AddToConnectTCP*, const REF_getter<SocketsContainerForSocketIO> &MS);
     bool on_startService(const systemEvent::startService*);
     bool on_TickTimer(const timerEvent::TickTimer*);
-//    bool on_Write(const socketEvent::Write*);
     bool on_RequestIncoming(const webHandlerEvent::RequestIncoming*);
     void onEPOLLIN(const REF_getter<epoll_socket_info>& esi, const REF_getter<SocketsContainerForSocketIO> &MS);
     void onEPOLLIN_STREAMTYPE_LISTENING(const REF_getter<epoll_socket_info>&esi, const REF_getter<SocketsContainerForSocketIO> &MS);
@@ -160,7 +128,8 @@ private:
     void onEPOLLOUT(const REF_getter<epoll_socket_info>& esi, const REF_getter<SocketsContainerForSocketIO> &MS);
     void onEPOLLERR(const REF_getter<epoll_socket_info>& esi, const REF_getter<SocketsContainerForSocketIO> &MS);
     bool  handleEvent(const REF_getter<Event::Base>&);
-    void handle_accepted(const REF_getter<SocketsContainerForSocketIO>& MS);
+    void handle_accepted1(const SOCKET_fd &neu_fd, const REF_getter<epoll_socket_info> esi, const REF_getter<SocketsContainerForSocketIO>& MS);
+
 
     IInstance* iInstance;
     bool m_isTerminating;

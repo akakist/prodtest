@@ -41,7 +41,7 @@ UnknownBase* HTTP::Service::construct(const SERVICE_id &id, const std::string& n
 HTTP::Service::Service(const SERVICE_id& id, const std::string&nm, IInstance* _if):
     UnknownBase(nm),Broadcaster(_if),
     ListenerSimple(nm,_if->getConfig(),id),
-    _stuff(new __http_stuff),
+//    _stuff(new __http_stuff),
     iInstance(_if)
 {
     m_maxPost= static_cast<size_t>(_if->getConfig()->get_int64_t("max_post", 1000000, ""));
@@ -89,6 +89,8 @@ HTTP::Service::Service(const SERVICE_id& id, const std::string&nm, IInstance* _i
 
 bool HTTP::Service::on_Connected(const socketEvent::Connected*)
 {
+    MUTEX_INSPECTOR;
+
     return true;
 
 }
@@ -108,7 +110,6 @@ bool HTTP::Service::on_DoListen(const httpEvent::DoListen* e)
 
     SOCKET_id newid=iUtils->getSocketId();
     msockaddr_in sa=e->addr;
-    //sa.setSocketId(newid);
     DBG(logErr2("on_DoListen %s",e->route.dump().c_str()));
     sendEvent(socketListener,new socketEvent::AddToListenTCP(newid,sa,"HTTP",false,e->route));
 
@@ -117,6 +118,7 @@ bool HTTP::Service::on_DoListen(const httpEvent::DoListen* e)
 
 bool HTTP::Service::on_startService(const systemEvent::startService*)
 {
+    MUTEX_INSPECTOR;
     socketListener=dynamic_cast<ListenerBase*>(iInstance->getServiceOrCreate(ServiceEnum::Socket));
     if(!socketListener)
         throw CommonError("if(!socketListener)");
@@ -161,10 +163,12 @@ bool HTTP::Service::handleEvent(const REF_getter<Event::Base>& evt)
         return on_startService((const systemEvent::startService*)evt.operator->());
     if( rpcEventEnum::IncomingOnAcceptor==ID)
     {
+        MUTEX_INSPECTOR;
         rpcEvent::IncomingOnAcceptor *E=(rpcEvent::IncomingOnAcceptor *)evt.operator ->();
         auto IDA=E->e->id;
         if(httpEventEnum::GetBindPortsREQ==IDA)
         {
+            MUTEX_INSPECTOR;
             const httpEvent::GetBindPortsREQ *e=(const httpEvent::GetBindPortsREQ *)E->e.operator ->();
             M_LOCK(mx);
             passEvent(new httpEvent::GetBindPortsRSP(mx.bind_addrs,poppedFrontRoute(e->route)));
@@ -179,42 +183,14 @@ bool HTTP::Service::handleEvent(const REF_getter<Event::Base>& evt)
 bool HTTP::Service::on_Accepted(const socketEvent::Accepted* evt)
 {
     MUTEX_INSPECTOR;
-//    _stuff->insert(evt->esi->m_id,new HTTP::Request());
-//    _stuff->add(ServiceEnum::HTTP,evt->esi);
     return true;
 }
 bool HTTP::Service::on_StreamRead(const socketEvent::StreamRead* evt)
 {
     MUTEX_INSPECTOR;
 
-    {
-        REF_getter<HTTP::Request> W=new HTTP::Request;
-        passEvent(new httpEvent::RequestIncoming(W,evt->esi,evt->route));
 
-    }
-    return true;
-
-    REF_getter<HTTP::Request> W=_stuff->getRequestOrNull(evt->esi->m_id);
-    if (!W.valid())
-    {
-//        throw CommonError("if (!W.valid())");
-        W=new HTTP::Request();
-        _stuff->insert(evt->esi->m_id,W);
-//        W=_stuff->getRequestOrNull(evt->esi->m_id);
-//        if(!W.valid())
-//        {
-//            throw CommonError("invalid behaviour %s %d",__FILE__,__LINE__);
-//        }
-    }
-    if(0)
-    {
-        if(!W->sendRequestIncomingIsSent)
-        {
-            W->sendRequestIncomingIsSent=true;
-            passEvent(new httpEvent::RequestIncoming(W,evt->esi,evt->route));
-        }
-        return  true;
-    }
+    REF_getter<HTTP::Request> W=getData(evt->esi.operator->());
 
 
     W->m_last_io_time=time(NULL);
@@ -471,7 +447,7 @@ bool HTTP::Service::on_StreamRead(const socketEvent::StreamRead* evt)
     {
         W->sendRequestIncomingIsSent=true;
         passEvent(new httpEvent::RequestIncoming(W,evt->esi,evt->route));
-        _stuff->on_delete(evt->esi,"");
+        clearData(evt->esi.operator->());
     }
     return  true;
 }
@@ -484,48 +460,14 @@ std::string HTTP::Service::get_mime_type(const std::string& mime) const
     if (i==mx.mime_types.end()) return "";
     else return i->second;
 }
-void HTTP::__http_stuff::on_delete(const REF_getter<epoll_socket_info>&esi, const std::string& )
-{
-    MUTEX_INSPECTOR;
-
-//    M_LOCK(m_lock);
-    auto i=container.find(esi->m_id);
-    if (i==container.end())
-    {
-        return;
-        throw CommonError("__http_stuff::on_delete: not found %s %d",__FILE__,__LINE__);
-    }
-    container.erase(esi->m_id);
-}
-
-REF_getter<HTTP::Request> HTTP::__http_stuff::getRequestOrNull(const SOCKET_id& id)
-{
-    MUTEX_INSPECTOR;
-
-//    M_LOCK(m_lock);
-    auto i=container.find(id);
-    if (i!=container.end()) return i->second;
-    return NULL;
-}
-void HTTP::__http_stuff::insert(const SOCKET_id& id,const REF_getter<HTTP::Request> &C)
-{
-    MUTEX_INSPECTOR;
-
-    {
-//        M_LOCK(m_lock);
-        container.insert(std::make_pair(id,C));
-    }
-
-}
 bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEmpty* e)
 {
     MUTEX_INSPECTOR;
 
     return true;
     S_LOG("on_NotifyOutBufferEmpty");
-//    DBG(logErr2("on_NotifyOutBufferEmpty %s",e->route.dump().c_str()));
 
-    REF_getter<HTTP::Request> W=_stuff->getRequestOrNull(e->esi->m_id);
+    REF_getter<HTTP::Request> W=getData(e->esi.operator->());
     if(!W.valid())
     {
 
@@ -535,7 +477,6 @@ bool HTTP::Service::on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEm
     REF_getter<HTTP::Request::_fileresponse> F=W->fileresponse;
     if(!F.valid())
         return true;
-//    if(!F.valid()) throw CommonError("if(!F.valid()) %s %d",__FILE__,__LINE__);
     if(F->fileSize==0)
     {
         e->esi->close("HTTPService: on_NotifyOutBufferEmpty: F->fileSize==0 @1");
@@ -841,13 +782,40 @@ std::string datef(const time_t &__t)
 bool HTTP::Service::on_Disaccepted(const socketEvent::Disaccepted*e)
 {
     MUTEX_INSPECTOR;
-    _stuff->on_delete(e->esi,e->reason);
+    clearData(e->esi.operator->());
     return true;
 }
 bool HTTP::Service::on_Disconnected(const socketEvent::Disconnected*e)
 {
     MUTEX_INSPECTOR;
-    _stuff->on_delete(e->esi,e->reason);
+    clearData(e->esi.operator->());
     return true;
 }
 
+
+REF_getter<HTTP::Request> HTTP::Service::getData(epoll_socket_info* esi)
+{
+
+    auto it=esi->additions.find('http');
+    if(it==esi->additions.end())
+    {
+        REF_getter<Refcountable> p=new HTTP::Request;
+        esi->additions.insert(std::make_pair('http',p));
+        it=esi->additions.find('http');
+    }
+    auto ret=dynamic_cast<HTTP::Request*>(it->second.operator->());
+    if(ret==NULL)
+        throw CommonError("if(ret==NULL)");
+    return ret;
+
+}
+void HTTP::Service::setData(epoll_socket_info* esi, const REF_getter<HTTP::Request> & p)
+{
+    esi->additions.insert(std::make_pair('http',p.operator->()));
+
+}
+void HTTP::Service::clearData(epoll_socket_info* esi)
+{
+    esi->additions.erase('http');
+
+}

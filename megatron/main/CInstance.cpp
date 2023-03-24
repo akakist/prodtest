@@ -13,9 +13,6 @@
 #include "utils_local.h"
 #include "colorOutput.h"
 
-#ifdef QT5
-#include <QStandardPaths>
-#endif
 
 #ifndef _MSC_VER
 #endif
@@ -418,13 +415,6 @@ void CInstance::initServices()
     std::vector<std::string> svs;
 #if !defined __CLI__
     svs.push_back("RPC");
-#endif
-#ifndef QT5
-#if !defined __MOBILE__
-#if !defined __CLI__
-#endif
-
-#endif
 #endif
 
     std::set<std::string> run=config_z->get_stringset("Start",iUtils->join(",",svs),"list of initially started services");

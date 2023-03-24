@@ -8,21 +8,17 @@
 NetworkMultiplexor::~NetworkMultiplexor()
 {
 #ifdef HAVE_EPOLL
-    logErr2("close m_socks->m_epoll.m_epollFd %d",m_epoll.m_epollFd);
-    if(::close(m_epoll.m_epollFd))
+    logErr2("close m_handle %d",m_handle);
+    if(::close(m_handle))
         logErr2("close: %d", errno);
 #endif
 #ifdef HAVE_KQUEUE
-    if(::close(m_kqueue))
+    if(::close(m_handle))
         logErr2("close: %d %s", errno,strerror(errno));
 #endif
 }
 
 
-//void NetworkMultiplexor::sockRemove(epoll_socket_info* esi)
-//{
-
-//}
 
 void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
 {
@@ -37,7 +33,7 @@ void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
     esi->ev_added=true;
     if(fd!=-1)
     {
-        if (epoll_ctl(m_epoll.m_epollFd, flag, fd, &evz) < 0)
+        if (epoll_ctl(m_handle, flag, fd, &evz) < 0)
         {
             logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
@@ -49,7 +45,7 @@ void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
 #endif
 #ifdef HAVE_KQUEUE
 
-    int fd=CONTAINER(esi->get_fd());
+    int fd=CONTAINER(esi->m_fd);
     if(fd!=-1)
     {
         int flags=EV_ENABLE;
@@ -65,7 +61,7 @@ void NetworkMultiplexor::sockStartWrite(epoll_socket_info* esi)
             timespec ts;
             ts.tv_nsec=0;
             ts.tv_sec=0;
-            kevent(m_kqueue,&ev,1,NULL,0,&ts);
+            kevent(m_handle,&ev,1,NULL,0,&ts);
 
     }
     else throw CommonError("fd==-1");
@@ -88,7 +84,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
     esi->ev_added=true;
     if(fd!=-1)
     {
-        if (epoll_ctl(m_epoll.m_epollFd, flag, fd, &evz) < 0)
+        if (epoll_ctl(m_handle, flag, fd, &evz) < 0)
         {
             logErr2("epoll_ctl add: socket '%d' - errno %d %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__);
             if(!esi->closed())
@@ -101,7 +97,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
 #ifdef HAVE_KQUEUE
 
 //    return;
-    int fd=CONTAINER(esi->get_fd());
+    int fd=CONTAINER(esi->m_fd);
     if(fd!=-1)
     {
         {
@@ -110,7 +106,7 @@ void NetworkMultiplexor::sockStopWrite(epoll_socket_info* esi)
             timespec ts;
             ts.tv_nsec=0;
             ts.tv_sec=0;
-            kevent(m_kqueue,&ev,1,NULL,0,&ts);
+            kevent(m_handle,&ev,1,NULL,0,&ts);
         }
     }
     else throw CommonError("fd==-1");
@@ -132,7 +128,7 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
         int flag=added?EPOLL_CTL_MOD:EPOLL_CTL_ADD;
         esi->ev_added=true;
 
-        if (epoll_ctl(m_epoll.m_epollFd, flag, CONTAINER(esi->get_fd()), &evtz) < 0)
+        if (epoll_ctl(m_handle, flag, CONTAINER(esi->get_fd()), &evtz) < 0)
         {
             logErr2("epoll_ctl mod: socket '%d' - errno %d",CONTAINER(esi->get_fd()), errno);
         }
@@ -154,7 +150,7 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
         timespec ts;
         ts.tv_nsec=0;
         ts.tv_sec=0;
-        kevent(m_kqueue,&ev,1,NULL,0,&ts);
+        kevent(m_handle,&ev,1,NULL,0,&ts);
     }
     {
         int flags=EV_ENABLE;
@@ -165,11 +161,11 @@ void NetworkMultiplexor::sockAddRWOnNew(epoll_socket_info* esi)
         }
 
         struct kevent ev;
-        EV_SET(&ev,CONTAINER(esi->get_fd()),EVFILT_READ,flags,0,0,(void*)(long)CONTAINER(esi->m_id));
+        EV_SET(&ev,CONTAINER(esi->m_fd),EVFILT_READ,flags,0,0,(void*)(long)CONTAINER(esi->m_id));
         timespec ts;
         ts.tv_nsec=0;
         ts.tv_sec=0;
-        kevent(m_kqueue,&ev,1,NULL,0,&ts);
+        kevent(m_handle,&ev,1,NULL,0,&ts);
     }
 #endif
 
@@ -190,7 +186,7 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
     esi->ev_added=true;
     if(fd!=-1)
     {
-        if (epoll_ctl(m_epoll.m_epollFd, flag, fd, &evz) < 0)
+        if (epoll_ctl(m_handle, flag, fd, &evz) < 0)
         {
             logErr2("epoll_ctl add: socket '%d' - errno %d %s %s %s",CONTAINER(esi->get_fd()), errno,__PRETTY_FUNCTION__,strerror(errno));
             if(!esi->closed())
@@ -218,7 +214,7 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
             timespec ts;
             ts.tv_nsec=0;
             ts.tv_sec=0;
-            kevent(m_kqueue,&ev,1,NULL,0,&ts);
+            kevent(m_handle,&ev,1,NULL,0,&ts);
         }
     }
     else throw CommonError("fd==-1");
@@ -227,9 +223,3 @@ void NetworkMultiplexor::sockAddReadOnNew(epoll_socket_info* esi)
 
     XPASS;
 }
-#ifdef HAVE_KQUEUE
-int NetworkMultiplexor::getKqueue()
-{
-    return m_kqueue;
-}
-#endif

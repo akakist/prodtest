@@ -7,6 +7,9 @@ add_library(core-mysql SHARED
     mysql.cpp
     mysqlService.cpp
 )
+add_library(zmysql STATIC
+    mysqlService.cpp
+)
 
 target_link_libraries(core-mysql megatron-core mysqlclient pthread)
 

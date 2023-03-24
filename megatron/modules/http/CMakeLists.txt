@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 3.0)
 
-
+ADD_SUBDIRECTORY(test_http)
+ADD_SUBDIRECTORY(test_http_rpc)
 add_library(core-http SHARED
 
             http.cpp
@@ -8,6 +9,6 @@ add_library(core-http SHARED
             mime_types.cpp
 
            )
-target_link_libraries(core-http megatron-core pthread event)
+target_link_libraries(core-http megatron-core pthread)
 install(TARGETS core-http DESTINATION ${PLUGIN_TARGET_DIR})
 

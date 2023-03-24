@@ -2,7 +2,7 @@
 
 
 
-#include_directories(../local ../lib/jsoncpp-0.5.0/include /usr/local/include .. . )
+
 
 add_library(zsingle STATIC
 ../dfsCaps/CapsAlgorithm.cpp

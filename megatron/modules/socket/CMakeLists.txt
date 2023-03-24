@@ -5,7 +5,7 @@ add_library(core-socket SHARED
             socketService.cpp
            )
 
-target_link_libraries(core-socket megatron-core pthread event event_pthreads)
+target_link_libraries(core-socket megatron-core pthread)
 
 install(TARGETS core-socket DESTINATION ${PLUGIN_TARGET_DIR})
 

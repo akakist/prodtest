@@ -71,10 +71,10 @@ private:
 public:
     /// filedescriptor
     SOCKET_fd m_fd;
-    SOCKET_fd get_fd()
-    {
-        return m_fd;
-    }
+//    SOCKET_fd get_fd()
+//    {
+//        return m_fd;
+//    }
 
     bool closed();
 
@@ -113,7 +113,7 @@ public:
 //    msockaddr_in local_name;
 
     /// m_outBuffer max size
-    const unsigned int maxOutBufferSize;
+//    const unsigned int maxOutBufferSize;
 
     /// any text of socket for debugging
     const char* socketDescription;
@@ -124,7 +124,7 @@ public:
 
 
     epoll_socket_info(const int& socketType, const STREAMTYPE &_streamtype,const SOCKET_id& _id,const SOCKET_fd& _fd, const route_t& _route,
-                      const int64_t& _maxOutBufferSize, const char* _socketDescription,
+                      const char* _socketDescription,
                       const REF_getter<NetworkMultiplexor>& _multiplexor);
 
     virtual ~epoll_socket_info();

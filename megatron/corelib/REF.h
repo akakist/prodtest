@@ -1,11 +1,12 @@
 #ifndef ______REF__H
 #define ______REF__H
-#include "mutexable.h"
+//#include "mutexable.h"
 
 #ifdef _MSC_VER
 #include <time.h>
 #endif
 #include <atomic>
+#include <stdio.h>
 /// base class and template of smart pointer with refcount, which can catch pointer many times.
 ///
 #define PRIVATEMUTEX
@@ -31,7 +32,7 @@ public:
     {
         if(__Ref_Count!=0)
         {
-            logErr2("destructor with __Ref_Count!=0");
+            printf("destructor with __Ref_Count!=0\n");
         }
     }
 };

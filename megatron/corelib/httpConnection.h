@@ -70,11 +70,6 @@ public:
     std::set<int> parse_state;
     time_t m_last_io_time;
 
-//        bool isPersistent;
-//        void makePersistent(bool v)
-//        {
-//            isPersistent=v;
-//        }
 
     struct _fileresponse: public Refcountable
     {

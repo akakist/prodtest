@@ -27,26 +27,6 @@
 namespace HTTP
 {
 
-class __http_stuff : public Refcountable
-{
-//    Mutex m_lock;
-    std::map<SOCKET_id,REF_getter<HTTP::Request> > container;
-public:
-    __http_stuff()
-    {}
-    REF_getter<HTTP::Request> getRequestOrNull(const SOCKET_id& id);
-    void insert(const SOCKET_id& id,const REF_getter<HTTP::Request> &C);
-    virtual ~__http_stuff() {}
-    void on_delete(const REF_getter<epoll_socket_info>&esi, const std::string& reason);
-    void clear()
-    {
-        {
-//            M_LOCK(m_lock);
-            container.clear();
-        }
-    }
-
-};
 
 class Service:
     public UnknownBase,
@@ -89,21 +69,22 @@ class Service:
     bool on_NotifyOutBufferEmpty(const socketEvent::NotifyOutBufferEmpty* );
     bool on_GetBindPortsREQ(const httpEvent::GetBindPortsREQ*);
 
+    REF_getter<HTTP::Request> getData(epoll_socket_info* esi);
+    void setData(epoll_socket_info* esi, const REF_getter<HTTP::Request> & p);
+    void clearData(epoll_socket_info* esi);
 
 
 public:
     void deinit()
     {
-//        ListenerBuffered1Thread::deinit();
+        ListenerSimple::deinit();
     }
     static UnknownBase*construct(const SERVICE_id&id, const std::string&nm, IInstance *_if);
     Service(const SERVICE_id& id, const std::string& nm, IInstance *_if);
     ~Service() {
-        _stuff->clear();
     }
 
 
-    REF_getter<__http_stuff> _stuff;
     std::string get_mime_type(const std::string& mime) const;
 
 protected:
