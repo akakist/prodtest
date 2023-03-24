@@ -38,11 +38,11 @@ printf("@@ %s\n",__PRETTY_FUNCTION__);
 "\nHTTP.max_post=1000000"
 "\nHTTP.doc_urls=/pics,/html,/css"
 "\nHTTP.document_root=./www"
-"\nSocketIO.epoll_timeout_millisec=10"
+"\nSocketIO.epoll_timeout_millisec=2000"
 "\nSocketIO.listen_backlog=128"
 
 "\n# socket poll thread count"
-"\nSocketIO.n_workers=4"
+"\nSocketIO.n_workers=2"
             ""
                                          );
             instance1->setConfig(cnf1);
